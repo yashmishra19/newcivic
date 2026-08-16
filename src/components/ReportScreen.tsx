@@ -262,76 +262,59 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
         className="hidden"
       />
 
-      {/* STEP 1 — PHOTO PICKER BOTTOM SHEET POPUP */}
+      {/* STEP 1 — CLEAN MINIMAL BOTTOM SHEET POPUP */}
       {step === 'photo-picker' && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex flex-col justify-end overflow-hidden font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200">
-          <div className="w-full max-w-md mx-auto bg-white rounded-t-[32px] shadow-2xl p-5 pb-8 space-y-4 border-t border-slate-100 animate-in slide-in-from-bottom duration-300">
-            {/* Drag Pill */}
-            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto" />
+        <div className="fixed inset-0 z-50 font-['Plus_Jakarta_Sans',sans-serif]">
+          {/* Dark overlay — click to dismiss */}
+          <div
+            className="absolute inset-0 bg-black/50 transition-opacity duration-300"
+            onClick={onCancel}
+          />
 
-            {/* Header */}
-            <div className="flex items-center justify-between">
+          {/* Bottom sheet card */}
+          <div className="absolute bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl p-6 pb-10 space-y-5 transition-transform duration-300 translate-y-0">
+            {/* Drag handle */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto -mt-1" />
+
+            {/* Header row */}
+            <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-xl font-black text-[#0d1c2e] tracking-tight">
                   Report a Hazard
                 </h2>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Add a photo to trigger AI triage & location auto-detect
+                <p className="text-sm text-slate-400 font-medium mt-1">
+                  Add a photo to get started
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onCancel}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition-colors cursor-pointer text-sm"
-                title="Close popup"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 
-            {/* Two Main Action Buttons */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            {/* Two action buttons */}
+            <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => cameraInputRef.current?.click()}
-                className="w-full py-4 bg-[#0052ff] hover:bg-[#0041d6] active:scale-[0.98] text-white rounded-[20px] shadow-md flex flex-col items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full py-4 bg-[#2563EB] hover:bg-[#1d4ed8] active:scale-[0.98] text-white rounded-2xl shadow-md flex items-center justify-center gap-3 transition-all cursor-pointer"
               >
-                <Camera className="w-6 h-6 stroke-[2.2]" />
-                <span className="text-sm font-extrabold tracking-tight">Take a Photo</span>
+                <Camera className="w-5 h-5 stroke-[2.2]" />
+                <span className="text-base font-bold">Take a Photo</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-4 bg-[#0052ff] hover:bg-[#0041d6] active:scale-[0.98] text-white rounded-[20px] shadow-md flex flex-col items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full py-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-[#2563EB] rounded-2xl border-2 border-[#2563EB] flex items-center justify-center gap-3 transition-all cursor-pointer"
               >
-                <ImageIcon className="w-6 h-6 stroke-[2.2]" />
-                <span className="text-sm font-extrabold tracking-tight">Upload Photo</span>
+                <ImageIcon className="w-5 h-5 stroke-[2.2]" />
+                <span className="text-base font-bold">Upload Photo</span>
               </button>
-            </div>
-
-            {/* Demo Presets Divider */}
-            <div className="pt-3 border-t border-slate-100">
-              <span className="text-[11px] font-extrabold text-[#757684] uppercase tracking-wider block mb-2">
-                Or Select Demo Preset
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {SAMPLE_TEMPLATES.map((tpl, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => handleApplySample(tpl)}
-                    className="p-2.5 bg-slate-50 hover:bg-[#e8edff] rounded-xl border border-slate-200/80 text-left text-xs transition-all cursor-pointer group"
-                  >
-                    <span className="font-bold text-[#0d1c2e] line-clamp-1 block group-hover:text-blue-600">
-                      {tpl.title}
-                    </span>
-                    <span className="text-[10px] text-[#757684] block mt-0.5 capitalize truncate">
-                      {tpl.category.replace('_', ' ')}
-                    </span>
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
         </div>

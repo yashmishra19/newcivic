@@ -47,21 +47,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <span className="text-xs tracking-tight">Map</span>
         </button>
 
-        {/* Report (Primary Action matching screen.png) */}
+        {/* Report (Primary FAB Action) */}
         <button
           id="nav-tab-report"
           type="button"
           onClick={() => onTabChange('report')}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 px-3.5 py-1.5 transition-all rounded-full ${
-            activeTab === 'report'
-              ? 'bg-[#e8edff] text-[#1e40af] font-bold'
-              : 'text-slate-500 hover:text-slate-800 font-medium'
-          }`}
+          className="flex flex-col items-center justify-center gap-0.5 -mt-7 transition-all"
         >
-          <div className="w-5 h-5 rounded-full border-2 border-[#1e40af] flex items-center justify-center text-[#1e40af] font-black text-xs">
-            +
+          <div className="w-14 h-14 rounded-full bg-[#2563EB] flex items-center justify-center shadow-lg shadow-blue-500/30 border-4 border-white active:scale-95 transition-transform">
+            <Plus className="w-7 h-7 text-white stroke-[2.8]" />
           </div>
-          <span className="text-xs tracking-tight">Report</span>
+          <span className="text-[10px] font-bold text-[#2563EB] tracking-tight mt-0.5">Report</span>
         </button>
 
         {/* Resolved */}
