@@ -264,7 +264,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
       {/* STEP 1 — CLEAN FULL SCREEN PHOTO PICKER */}
       {step === 'photo-picker' && (
-        <div className="fixed inset-0 z-50 bg-white font-['Plus_Jakarta_Sans',sans-serif] flex flex-col animate-in fade-in duration-200">
+        <div className="absolute inset-0 z-40 bg-white font-['Plus_Jakarta_Sans',sans-serif] flex flex-col animate-in fade-in duration-200">
           {/* Top Header Row */}
           <div className="flex items-center justify-between p-5 border-b border-slate-100">
             <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
       {/* STEP 2 — NEW REPORT / CREATE POST PAGE */}
       {step === 'create-post' && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200">
+        <div className="absolute inset-0 z-40 bg-white flex flex-col font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200">
           <div className="flex-1 w-full max-w-md mx-auto overflow-y-auto p-5 pb-28 space-y-5">
             {/* Top Header Row */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">

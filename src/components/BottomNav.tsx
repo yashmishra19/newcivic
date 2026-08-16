@@ -14,7 +14,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
 }) => {
   return (
-    <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-md bg-white/95 backdrop-blur-md rounded-full border border-slate-200/80 shadow-[0_8px_30px_rgba(13,28,46,0.08)] px-3 py-2 z-50 transition-all">
+    <nav className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(13,28,46,0.08)] px-3 pb-5 pt-2 z-50 transition-all">
       <div className="flex items-center justify-around relative">
         
         {/* Home */}
