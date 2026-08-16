@@ -219,7 +219,7 @@ export default function CitizenApp() {
 
         {/* Screen Content Based on Active Tab */}
         <div className="flex-1 flex flex-col relative overflow-hidden bg-slate-50">
-          {(activeTab === 'map' || activeTab === 'report') && (
+          {activeTab === 'map' && (
             <MapScreen
               issues={filteredIssues}
               selectedIssueId={selectedIssueId}

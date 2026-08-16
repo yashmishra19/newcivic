@@ -15,6 +15,7 @@ import {
   Shield,
   Zap,
   X,
+  Search,
   Image as ImageIcon,
 } from 'lucide-react';
 import { CivicIssue, IssueCategory, IssueSeverity } from '../types';
@@ -235,20 +236,42 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
   };
 
   return (
-    <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-xs z-50 flex flex-col justify-end overflow-hidden font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200">
-      <div className="w-full max-w-md mx-auto h-[92%] bg-white rounded-t-[32px] shadow-2xl border-t border-slate-200 overflow-y-auto p-5 pb-28 space-y-6 animate-in slide-in-from-bottom duration-300">
-      {/* Top Header Row (Matching screen.png) */}
+    <div className="flex-1 w-full max-w-md mx-auto bg-white overflow-y-auto p-5 pb-28 space-y-5 font-['Plus_Jakarta_Sans',sans-serif] min-h-full">
+      {/* Top Header Row with Back Button */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-        <h1 className="text-2xl font-black text-[#0d1c2e] tracking-tight">
-          Report
-        </h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-1.5 -ml-1 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Back to map"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+          </button>
+          <h1 className="text-xl font-black text-[#0d1c2e] tracking-tight">
+            Report a Hazard
+          </h1>
+        </div>
         <button
+          type="button"
           onClick={onCancel}
-          className="p-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+          className="p-1.5 rounded-full text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           title="Close"
         >
-          <X className="w-6 h-6 stroke-[2.2]" />
+          <X className="w-5 h-5" />
         </button>
+      </div>
+
+      {/* Location / Address Search Bar */}
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Search location address..."
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold text-[#0d1c2e] placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-hidden transition-all shadow-xs"
+        />
       </div>
 
       {/* Hidden File Input for Native Camera/Gallery Selection */}
@@ -447,6 +470,5 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
         }}
       />
     </div>
-  </div>
   );
 };
