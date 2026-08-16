@@ -199,8 +199,8 @@ export default function CitizenApp() {
       <main
         className={`w-full flex-1 flex flex-col justify-start transition-all bg-white overflow-hidden relative ${
           viewMode === 'mobile-frame'
-            ? 'md:max-w-[420px] md:my-3 md:rounded-[40px] md:shadow-[0_20px_60px_rgba(0,0,0,0.6)] md:border-[6px] md:border-slate-800 md:min-h-[780px] md:h-[85vh] md:max-h-[920px] min-h-screen md:min-h-0'
-            : 'md:max-w-4xl md:my-2 md:rounded-3xl md:shadow-2xl md:border md:border-slate-800 md:min-h-[820px] min-h-screen md:min-h-0'
+            ? 'md:max-w-[420px] md:my-3 md:rounded-[40px] md:shadow-[0_20px_60px_rgba(0,0,0,0.6)] md:border-[6px] md:border-slate-800 md:min-h-[780px] md:h-[85vh] md:max-h-[920px] h-[100dvh] md:min-h-0'
+            : 'md:max-w-4xl md:my-2 md:rounded-3xl md:shadow-2xl md:border md:border-slate-800 md:min-h-[820px] h-[100dvh] md:h-[90vh] md:min-h-0'
         }`}
       >
         {/* Mobile Device Status Bar (when in mobile-frame mode on desktop) */}
