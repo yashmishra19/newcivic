@@ -83,6 +83,7 @@ const SAMPLE_TEMPLATES = [
 
 export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string>(
@@ -274,42 +275,98 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
         />
       </div>
 
-      {/* Hidden File Input for Native Camera/Gallery Selection */}
+      {/* Hidden File Inputs for Native Camera & Gallery Selection */}
       <input
         type="file"
-        ref={fileInputRef}
+        ref={cameraInputRef}
         onChange={handleFileChange}
         accept="image/*"
         capture="environment"
         className="hidden"
       />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+      />
 
-      {/* Primary Photo Action Buttons (Matching screen.png) */}
+      {/* Primary Photo Action Buttons & Preview Box */}
       <div className="space-y-3.5">
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full py-5 bg-[#0052ff] hover:bg-[#0041d6] active:scale-[0.98] text-white rounded-[20px] shadow-md flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer"
+          onClick={() => cameraInputRef.current?.click()}
+          className="w-full py-4 bg-[#0052ff] hover:bg-[#0041d6] active:scale-[0.98] text-white rounded-[20px] shadow-md flex items-center justify-center gap-2.5 transition-all cursor-pointer"
         >
-          <Camera className="w-7 h-7 stroke-[2.2]" />
-          <span className="text-lg font-extrabold tracking-tight">Take a Photo</span>
+          <Camera className="w-6 h-6 stroke-[2.2]" />
+          <span className="text-base font-extrabold tracking-tight">Take a Photo</span>
         </button>
 
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="w-full py-5 bg-[#0052ff] hover:bg-[#0041d6] active:scale-[0.98] text-white rounded-[20px] shadow-md flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer"
+          className="w-full py-4 bg-[#0052ff] hover:bg-[#0041d6] active:scale-[0.98] text-white rounded-[20px] shadow-md flex items-center justify-center gap-2.5 transition-all cursor-pointer"
         >
-          <ImageIcon className="w-7 h-7 stroke-[2.2]" />
-          <span className="text-lg font-extrabold tracking-tight">Upload Photo</span>
+          <ImageIcon className="w-6 h-6 stroke-[2.2]" />
+          <span className="text-base font-extrabold tracking-tight">Upload Photo</span>
         </button>
 
-        {/* Dashed Helper Box (Matching screen.png) */}
-        <div className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[16px] bg-slate-50/70 text-center">
-          <span className="text-sm font-semibold text-slate-700">
-            Add a clear photo of the issue
-          </span>
-        </div>
+        {/* Photo Evidence Preview Box or Helper Box */}
+        {imageUrl ? (
+          <div className="relative rounded-[20px] overflow-hidden bg-slate-900 border-2 border-slate-200 aspect-video shadow-md group">
+            <img
+              src={imageUrl}
+              alt="Photo evidence preview"
+              className="w-full h-full object-cover"
+              crossOrigin="anonymous"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 p-3 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1">
+                  <Camera className="w-3 h-3 text-blue-400" />
+                  <span>{selectedFile ? selectedFile.name : 'Photo Evidence Attached'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setImageUrl('');
+                  }}
+                  className="w-7 h-7 rounded-full bg-slate-900/80 hover:bg-red-600 text-white font-bold flex items-center justify-center transition-colors cursor-pointer"
+                  title="Remove photo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="bg-white/90 hover:bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Retake</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-white/90 hover:bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Change Photo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[16px] bg-slate-50/70 text-center">
+            <span className="text-sm font-semibold text-slate-700">
+              Add a clear photo of the issue
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Quick Demo Presets */}
