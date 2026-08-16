@@ -291,7 +291,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
           </div>
 
           {/* Content Body */}
-          <div className="flex-1 w-full max-w-md mx-auto p-6 flex flex-col justify-center pb-32">
+          <div className="flex-1 w-full max-w-md mx-auto p-6 flex flex-col justify-center pb-8">
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Camera className="w-8 h-8 text-blue-500 stroke-[2]" />
@@ -328,7 +328,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
       {/* STEP 2 — NEW REPORT / CREATE POST PAGE */}
       {step === 'create-post' && (
         <div className="absolute inset-0 z-40 bg-white flex flex-col font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200">
-          <div className="flex-1 w-full max-w-md mx-auto overflow-y-auto p-5 pb-28 space-y-5">
+          <div className="flex-1 w-full max-w-md mx-auto overflow-y-auto p-5 pb-8 space-y-5">
             {/* Top Header Row */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">

@@ -27,7 +27,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ issues, onViewDeta
   const myReported = issues.slice(0, 3);
 
   return (
-    <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 max-w-md mx-auto w-full space-y-5">
+    <div className="w-full px-4 pt-4 max-w-md mx-auto space-y-5 pb-8">
       
       {/* 1. PROFILE HEADER SECTION */}
       <section className="flex flex-col items-center text-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">

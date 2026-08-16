@@ -41,7 +41,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pb-28 bg-[#f8f9ff] w-full">
+    <div className="w-full bg-[#f8f9ff]">
       <div className="max-w-md mx-auto w-full px-4 pt-4 space-y-5">
         
         {/* ================= 1. TOP LOCATION ROW ================= */}
