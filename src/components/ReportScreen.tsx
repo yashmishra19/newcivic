@@ -262,42 +262,47 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
         className="hidden"
       />
 
-      {/* STEP 1 — CLEAN MINIMAL BOTTOM SHEET POPUP */}
+      {/* STEP 1 — CLEAN FULL SCREEN PHOTO PICKER */}
       {step === 'photo-picker' && (
-        <div className="fixed inset-0 z-50 font-['Plus_Jakarta_Sans',sans-serif]">
-          {/* Dark overlay — click to dismiss */}
-          <div
-            className="absolute inset-0 bg-black/50 transition-opacity duration-300"
-            onClick={onCancel}
-          />
-
-          {/* Bottom sheet card */}
-          <div className="absolute bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl p-6 pb-10 space-y-5 transition-transform duration-300 translate-y-0">
-            {/* Drag handle */}
-            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto -mt-1" />
-
-            {/* Header row */}
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-black text-[#0d1c2e] tracking-tight">
-                  Report a Hazard
-                </h2>
-                <p className="text-sm text-slate-400 font-medium mt-1">
-                  Add a photo to get started
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 bg-white font-['Plus_Jakarta_Sans',sans-serif] flex flex-col animate-in fade-in duration-200">
+          {/* Top Header Row */}
+          <div className="flex items-center justify-between p-5 border-b border-slate-100">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onCancel}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
-                title="Close"
+                className="p-1.5 -ml-1 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Back"
               >
-                <X className="w-4 h-4 stroke-[2.5]" />
+                <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
               </button>
+              <h1 className="text-xl font-black text-[#0d1c2e] tracking-tight">
+                Report a Hazard
+              </h1>
+            </div>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="p-1.5 rounded-full text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Cancel"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Content Body */}
+          <div className="flex-1 w-full max-w-md mx-auto p-6 flex flex-col justify-center pb-32">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Camera className="w-8 h-8 text-blue-500 stroke-[2]" />
+              </div>
+              <p className="text-slate-500 font-medium text-sm">
+                Add a photo to get started
+              </p>
             </div>
 
             {/* Two action buttons */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={() => cameraInputRef.current?.click()}
