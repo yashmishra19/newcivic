@@ -1,0 +1,188 @@
+export type CitizenStatus = 'verified' | 'pending' | 'top-contributor' | 'banned';
+
+export interface Citizen {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  neighborhood: string;
+  avatar: string;
+  reportsSubmitted: number;
+  status: CitizenStatus;
+  lastActivity: string;
+  joinedDate: string;
+  resolvedReports: number;
+}
+
+export const CITIZEN_STATUS_COLORS: Record<CitizenStatus, string> = {
+  verified: '#22C55E',
+  pending: '#F59E0B',
+  'top-contributor': '#3B82F6',
+  banned: '#EF4444',
+};
+
+export const CITIZEN_STATUS_LABELS: Record<CitizenStatus, string> = {
+  verified: 'Verified Account',
+  pending: 'Pending Review',
+  'top-contributor': 'Top Contributor',
+  banned: 'Banned',
+};
+
+export const MOCK_CITIZENS: Citizen[] = [
+  {
+    id: 'cit-001',
+    name: 'Sarah Jenkins',
+    email: 's.jenkins@example.com',
+    phone: '(555) 234-5678',
+    neighborhood: 'Downtown',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
+    reportsSubmitted: 24,
+    status: 'verified',
+    lastActivity: '2 hours ago',
+    joinedDate: 'Jan 2024',
+    resolvedReports: 18,
+  },
+  {
+    id: 'cit-002',
+    name: 'Michael Chen',
+    email: 'm.chen@example.com',
+    phone: '(555) 345-6789',
+    neighborhood: 'Harbor District',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
+    reportsSubmitted: 12,
+    status: 'pending',
+    lastActivity: '5 hours ago',
+    joinedDate: 'Mar 2024',
+    resolvedReports: 8,
+  },
+  {
+    id: 'cit-003',
+    name: 'David Wilson',
+    email: 'd.wilson@example.com',
+    phone: '(555) 456-7890',
+    neighborhood: 'Oakwood',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+    reportsSubmitted: 52,
+    status: 'top-contributor',
+    lastActivity: '1 hour ago',
+    joinedDate: 'Nov 2023',
+    resolvedReports: 45,
+  },
+  {
+    id: 'cit-004',
+    name: 'Lisa Park',
+    email: 'l.park@example.com',
+    phone: '(555) 567-8901',
+    neighborhood: 'Midtown',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
+    reportsSubmitted: 18,
+    status: 'verified',
+    lastActivity: '3 hours ago',
+    joinedDate: 'Feb 2024',
+    resolvedReports: 14,
+  },
+  {
+    id: 'cit-005',
+    name: 'Robert Taylor',
+    email: 'r.taylor@example.com',
+    phone: '(555) 678-9012',
+    neighborhood: 'Oakwood',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
+    reportsSubmitted: 8,
+    status: 'verified',
+    lastActivity: '1 day ago',
+    joinedDate: 'Apr 2024',
+    resolvedReports: 5,
+  },
+  {
+    id: 'cit-006',
+    name: 'Emily Watson',
+    email: 'e.watson@example.com',
+    phone: '(555) 789-0123',
+    neighborhood: 'Harbor District',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',
+    reportsSubmitted: 31,
+    status: 'top-contributor',
+    lastActivity: '4 hours ago',
+    joinedDate: 'Dec 2023',
+    resolvedReports: 28,
+  },
+  {
+    id: 'cit-007',
+    name: 'James Anderson',
+    email: 'j.anderson@example.com',
+    phone: '(555) 890-1234',
+    neighborhood: 'Industrial Zone',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop',
+    reportsSubmitted: 6,
+    status: 'verified',
+    lastActivity: '6 hours ago',
+    joinedDate: 'May 2024',
+    resolvedReports: 4,
+  },
+  {
+    id: 'cit-008',
+    name: 'Maria Garcia',
+    email: 'm.garcia@example.com',
+    phone: '(555) 901-2345',
+    neighborhood: 'Westside',
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop',
+    reportsSubmitted: 15,
+    status: 'verified',
+    lastActivity: '2 days ago',
+    joinedDate: 'Jan 2024',
+    resolvedReports: 12,
+  },
+  {
+    id: 'cit-009',
+    name: 'Patricia Brown',
+    email: 'p.brown@example.com',
+    phone: '(555) 012-3456',
+    neighborhood: 'Southgate',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
+    reportsSubmitted: 3,
+    status: 'pending',
+    lastActivity: '1 week ago',
+    joinedDate: 'Jul 2024',
+    resolvedReports: 1,
+  },
+  {
+    id: 'cit-010',
+    name: 'Thomas Lee',
+    email: 't.lee@example.com',
+    phone: '(555) 123-4567',
+    neighborhood: 'Harbor District',
+    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop',
+    reportsSubmitted: 9,
+    status: 'verified',
+    lastActivity: '12 hours ago',
+    joinedDate: 'Apr 2024',
+    resolvedReports: 7,
+  },
+  {
+    id: 'cit-011',
+    name: 'Nancy White',
+    email: 'n.white@example.com',
+    phone: '(555) 234-5679',
+    neighborhood: 'Midtown',
+    avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100&h=100&fit=crop',
+    reportsSubmitted: 22,
+    status: 'verified',
+    lastActivity: '3 hours ago',
+    joinedDate: 'Dec 2023',
+    resolvedReports: 19,
+  },
+  {
+    id: 'cit-012',
+    name: 'Kevin Moore',
+    email: 'k.moore@example.com',
+    phone: '(555) 345-6780',
+    neighborhood: 'Greenfield',
+    avatar: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=100&h=100&fit=crop',
+    reportsSubmitted: 41,
+    status: 'top-contributor',
+    lastActivity: '30 min ago',
+    joinedDate: 'Oct 2023',
+    resolvedReports: 38,
+  },
+];
