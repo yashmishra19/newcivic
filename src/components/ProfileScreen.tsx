@@ -151,10 +151,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = () => {
                   <span className="text-[11px] text-[#757684]">{item.reportedAt}</span>
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${item.status === 'resolved'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : item.status === 'in_progress'
-                          ? 'bg-amber-100 text-amber-900'
-                          : 'bg-[#e6eeff] text-[#1e40af]'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : item.status === 'in_progress'
+                        ? 'bg-amber-100 text-amber-900'
+                        : 'bg-[#e6eeff] text-[#1e40af]'
                       }`}
                   >
                     {item.status.replace('_', ' ')}
@@ -224,6 +224,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = () => {
           </a>
         </div>
       </section>
+
+      {/* Sign Out Button */}
+      <button
+        onClick={() => {
+          localStorage.removeItem('civicwatch_auth');
+          window.location.reload();
+        }}
+        className="w-full py-3.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-center font-bold text-xs shadow-2xs flex items-center justify-center gap-2 cursor-pointer border border-red-200/50 mt-4"
+      >
+        <LogOut className="w-4 h-4 shrink-0" />
+        <span>Sign Out</span>
+      </button>
     </div>
   );
 };
