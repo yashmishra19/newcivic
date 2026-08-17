@@ -1,353 +1,332 @@
 import React, { useState } from 'react';
 import { 
-  Users, 
-  MessageSquare, 
-  ThumbsUp, 
-  Share2, 
-  Bell, 
-  ShieldAlert, 
-  CheckCircle, 
-  Award, 
-  Clock, 
-  TrendingUp, 
-  MapPin, 
-  Check, 
-  Building 
+  Building, 
+  Trophy, 
+  Crown, 
+  Sparkles, 
+  ChevronRight, 
+  PlusCircle, 
+  Calendar,
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 
-interface Post {
-  id: string;
-  avatar: string;
+interface Reporter {
+  rank: number;
   name: string;
-  neighborhood: string;
-  type: 'critical' | 'resolved' | 'discussion' | 'thanks' | 'official';
-  time: string;
-  photo?: string;
-  caption: string;
-  location?: string;
-  upvotes: number;
-  comments: number;
-  hasUpvoted?: boolean;
-  hasFollowed?: boolean;
+  reports: number;
+  percentage: number;
+  badge: string;
+  medal: string;
+  avatar: string;
+  isTop?: boolean;
 }
 
-export const CommunityScreen: React.FC = () => {
-  const [feedFilter, setFeedFilter] = useState<'trending' | 'recent'>('trending');
-  
-  // Community Feed Mock Data
-  const [posts, setPosts] = useState<Post[]>([
+interface CommunityScreenProps {
+  onNavigateToReport?: () => void;
+}
+
+export const CommunityScreen: React.FC<CommunityScreenProps> = ({ onNavigateToReport }) => {
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+
+  const reporters: Reporter[] = [
     {
-      id: 'post-1',
-      name: 'Alex Rivera',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-      neighborhood: 'Mission District',
-      type: 'critical',
-      time: '15 mins ago',
-      photo: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
-      caption: 'Severe pothole detected on 24th St. Already damaged two bike tires this morning. Watch out!',
-      location: '24th St & Mission St',
-      upvotes: 42,
-      comments: 7,
-      hasUpvoted: true
+      rank: 1,
+      name: 'Sarah K.',
+      reports: 23,
+      percentage: 100,
+      badge: '👑',
+      medal: '🥇',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+      isTop: true
     },
     {
-      id: 'post-2',
-      name: 'Maya Lin',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-      neighborhood: 'Castro District',
-      type: 'resolved',
-      time: '2 hours ago',
-      caption: 'The streetlight on Pine St is FIXED! 🎉 Thank you to the municipal team for the quick turnaround.',
-      location: 'Pine St & 18th St',
-      upvotes: 28,
-      comments: 3
+      rank: 2,
+      name: 'James L.',
+      reports: 19,
+      percentage: 82,
+      badge: '🥇',
+      medal: '🥈',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'
     },
     {
-      id: 'post-3',
-      name: 'Robert S.',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
-      neighborhood: 'Metro Center',
-      type: 'discussion',
-      time: '4 hours ago',
-      caption: 'Anyone else seeing water pressure drops or flooding on Market St? Might be a water main leak near the station.',
-      location: 'Market St Transit Hub',
-      upvotes: 15,
-      comments: 11
+      rank: 3,
+      name: 'Zoe M.',
+      reports: 14,
+      percentage: 61,
+      badge: '🥈',
+      medal: '🥉',
+      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80'
     },
     {
-      id: 'post-4',
-      name: 'City of SF Public Works',
-      avatar: 'https://images.unsplash.com/photo-1599508704512-2f19efd1e35f?auto=format&fit=crop&w=150&q=80',
-      neighborhood: 'Official',
-      type: 'official',
-      time: '5 hours ago',
-      caption: 'Crew dispatched to investigate the water main leak near Market St Transit Hub. ETA to site is 2 hours. Traffic diversion in place.',
-      location: 'Market St Segment',
-      upvotes: 56,
-      comments: 4
+      rank: 4,
+      name: 'David H.',
+      reports: 11,
+      percentage: 48,
+      badge: '🥉',
+      medal: '🎖️',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80'
     }
-  ]);
+  ];
 
-  const handleUpvote = (postId: string) => {
-    setPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          upvotes: post.hasUpvoted ? post.upvotes - 1 : post.upvotes + 1,
-          hasUpvoted: !post.hasUpvoted
-        };
+  const handleReportClick = () => {
+    if (onNavigateToReport) {
+      onNavigateToReport();
+    } else {
+      const reportBtn = document.getElementById('nav-tab-report');
+      if (reportBtn) {
+        reportBtn.click();
       }
-      return post;
-    }));
+    }
   };
 
-  const handleFollow = (postId: string) => {
-    setPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          hasFollowed: !post.hasFollowed
-        };
-      }
-      return post;
-    }));
-  };
+  const topReporter = reporters[0];
+  const otherReporters = reporters.slice(1);
 
   return (
-    <div className="w-full bg-[#F8F9FA] min-h-full font-['Plus_Jakarta_Sans',sans-serif] pb-24">
-      {/* SECTION 1 — TOP HEADER */}
-      <div className="bg-white px-4 pt-4 pb-3 border-b border-slate-100 shadow-2xs">
-        <div className="flex justify-between items-center">
+    <div className="w-full bg-[#F8F9FA] min-h-full font-['Plus_Jakarta_Sans',sans-serif] pb-28">
+      {/* HEADER SECTION — Subtle Civic Gradient */}
+      <div className="bg-gradient-to-b from-blue-50/80 via-indigo-50/30 to-white px-5 pt-6 pb-5 border-b border-blue-100/50 shadow-2xs">
+        <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">CivicPulse</h1>
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="p-1.5 rounded-lg bg-blue-600 text-white shadow-xs">
+                <Trophy className="w-4 h-4" />
               </span>
+              <h1 className="text-lg font-black text-slate-900 tracking-tight">Community Hub</h1>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">Metro District 4 • 2.3k neighbors active</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              Metro District • Civic Contributors & City Notices
+            </p>
           </div>
-          
-          <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
-            <button
-              onClick={() => setFeedFilter('trending')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                feedFilter === 'trending'
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Trending</span>
-            </button>
-            <button
-              onClick={() => setFeedFilter('recent')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                feedFilter === 'recent'
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Recent</span>
-            </button>
+          <div className="flex items-center gap-1 bg-blue-100/60 border border-blue-200/70 text-blue-700 px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-2xs">
+            <Sparkles className="w-3 h-3 text-blue-600" />
+            <span>Active Month</span>
           </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* SECTION 2 — NEIGHBORHOOD STATS BAR */}
-        <div className="flex gap-2.5 overflow-x-auto no-scrollbar py-1">
-          <div className="flex-shrink-0 bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100/50">
-            <span className="text-sm">🚨</span>
-            <span className="text-[11px] font-bold text-slate-700">12 Active Issues</span>
-          </div>
-          <div className="flex-shrink-0 bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100/50">
-            <span className="text-sm">✅</span>
-            <span className="text-[11px] font-bold text-slate-700">34 Resolved This Week</span>
-          </div>
-          <div className="flex-shrink-0 bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100/50">
-            <span className="text-sm">👥</span>
-            <span className="text-[11px] font-bold text-slate-700">2.3k Neighbors</span>
-          </div>
-          <div className="flex-shrink-0 bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100/50">
-            <span className="text-sm">⭐</span>
-            <span className="text-[11px] font-bold text-slate-700">89% Response Rate</span>
-          </div>
-        </div>
-
-        {/* SECTION 3 — CIVIC CHALLENGES */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Weekly Challenge 🏆</span>
-              <h3 className="text-sm font-bold text-slate-900 mt-1">Report 3 issues in your block</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Earn the prestigious Civic Hero Badge</p>
+      <div className="p-4 space-y-4 max-w-lg mx-auto">
+        {/* SECTION 1 — TOP REPORTERS THIS MONTH LEADERBOARD */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                Top Reporters This Month
+              </h2>
+              <span className="text-xs">🌟</span>
             </div>
-            <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 shadow-sm shrink-0">
-              <Award className="w-5 h-5 stroke-[2.2]" />
-            </div>
+            <span className="text-[11px] font-bold text-slate-400">4 Champions</span>
           </div>
-          
-          <div className="mt-3">
-            <div className="flex justify-between text-[10px] font-bold text-slate-600 mb-1">
-              <span>Challenge Progress (1/3)</span>
-              <span className="text-slate-400">4 days left</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-blue-600 h-full rounded-full transition-all duration-300" style={{ width: '33%' }}></div>
-            </div>
-          </div>
-        </div>
 
-        {/* SECTION 4 — COMMUNITY FEED */}
-        <div className="space-y-3">
-          {posts.map((post) => {
-            let badgeBg = 'bg-slate-100 text-slate-700';
-            let badgeText = post.type.toUpperCase();
-            
-            if (post.type === 'critical') {
-              badgeBg = 'bg-red-50 text-red-600 border border-red-100';
-              badgeText = '🚨 CRITICAL ALERT';
-            } else if (post.type === 'resolved') {
-              badgeBg = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
-              badgeText = '✅ RESOLVED';
-            } else if (post.type === 'discussion') {
-              badgeBg = 'bg-blue-50 text-blue-600 border border-blue-100';
-              badgeText = '💬 DISCUSSION';
-            } else if (post.type === 'official') {
-              badgeBg = 'bg-indigo-50 text-indigo-700 border border-indigo-100';
-              badgeText = '🏛️ OFFICIAL REPLY';
-            }
+          {/* #1 Standout Hero Card (Sarah K.) */}
+          {topReporter && (
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border-2 border-amber-300/80 p-4 shadow-sm mb-4">
+              <div className="absolute top-2 right-2 flex items-center gap-1 bg-amber-400 text-amber-950 font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs">
+                <Crown className="w-3 h-3 fill-amber-950" />
+                <span>#1 LEADER</span>
+              </div>
 
-            return (
-              <div key={post.id} className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] overflow-hidden">
-                {/* Author Info */}
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src={post.avatar} 
-                      alt={post.name} 
-                      className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-black text-slate-900">{post.name}</span>
-                        {post.type === 'official' && (
-                          <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-bold">
-                            ✓
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-bold">{post.neighborhood} • {post.time}</span>
-                    </div>
-                  </div>
-
-                  <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md ${badgeBg}`}>
-                    {badgeText}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <img
+                    src={topReporter.avatar}
+                    alt={topReporter.name}
+                    className="w-16 h-16 rounded-full object-cover border-3 border-amber-400 shadow-md"
+                  />
+                  <span className="absolute -bottom-1 -right-1 bg-amber-400 text-white rounded-full shadow-xs w-6 h-6 flex items-center justify-center text-sm border-2 border-white">
+                    🥇
                   </span>
                 </div>
 
-                {/* Media Image */}
-                {post.photo && (
-                  <div className="w-full aspect-video overflow-hidden bg-slate-100 border-y border-slate-100">
-                    <img src={post.photo} alt="Post media" className="w-full h-full object-cover" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-black text-slate-900 truncate">
+                      {topReporter.name}
+                    </span>
+                    <span className="text-xs font-extrabold text-amber-600 bg-amber-100/70 px-1.5 py-0.2 rounded">
+                      Rank #1
+                    </span>
                   </div>
-                )}
+                  <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                    <span className="font-extrabold text-amber-700">{topReporter.reports}</span> reports submitted
+                  </p>
 
-                {/* Caption / Content */}
-                <div className="px-4 pt-3 pb-2">
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed">{post.caption}</p>
-                  
-                  {post.location && (
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold mt-2.5">
-                      <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                      <span>{post.location}</span>
+                  {/* Relative Progress Bar (100%) */}
+                  <div className="mt-2.5">
+                    <div className="flex justify-between text-[10px] font-bold text-amber-800/80 mb-1">
+                      <span>Monthly Pace</span>
+                      <span>100%</span>
                     </div>
-                  )}
-                </div>
-
-                {/* Actions Footer */}
-                <div className="px-4 py-2.5 border-t border-slate-100/50 flex justify-between items-center text-slate-400">
-                  <button 
-                    onClick={() => handleUpvote(post.id)}
-                    className={`flex items-center gap-1.5 text-[11px] font-extrabold py-1.5 px-2 rounded-lg transition-colors cursor-pointer ${
-                      post.hasUpvoted ? 'text-blue-600 bg-blue-50' : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <ThumbsUp className={`w-3.5 h-3.5 ${post.hasUpvoted ? 'fill-blue-600 stroke-[2.2]' : ''}`} />
-                    <span>{post.upvotes}</span>
-                  </button>
-
-                  <button className="flex items-center gap-1.5 text-[11px] font-extrabold py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>{post.comments}</span>
-                  </button>
-
-                  <button 
-                    onClick={() => handleFollow(post.id)}
-                    className={`flex items-center gap-1.5 text-[11px] font-extrabold py-1.5 px-2 rounded-lg transition-colors cursor-pointer ${
-                      post.hasFollowed ? 'text-emerald-600 bg-emerald-50' : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <Bell className={`w-3.5 h-3.5 ${post.hasFollowed ? 'fill-emerald-600 stroke-[2.2]' : ''}`} />
-                    <span>{post.hasFollowed ? 'Following' : 'Follow'}</span>
-                  </button>
-
-                  <button className="flex items-center gap-1.5 text-[11px] font-extrabold py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Share</span>
-                  </button>
+                    <div className="w-full bg-amber-200/60 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-amber-400 to-amber-500 h-full rounded-full transition-all duration-500 shadow-xs"
+                        style={{ width: `${topReporter.percentage}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
 
-        {/* SECTION 5 — LOCAL HEROES STRIP */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 mb-3">Top Reporters This Month 🌟</h3>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar py-1">
-            {[
-              { name: 'Sarah K.', reports: 23, badge: '🏆', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80' },
-              { name: 'James L.', reports: 19, badge: '🥇', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80' },
-              { name: 'Zoe M.', reports: 14, badge: '🥈', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=100&q=80' },
-              { name: 'David H.', reports: 11, badge: '🥉', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80' },
-            ].map((hero, idx) => (
-              <div key={idx} className="flex-shrink-0 w-20 flex flex-col items-center text-center">
-                <div className="relative">
-                  <img src={hero.avatar} alt={hero.name} className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/20" />
-                  <span className="absolute -bottom-1 -right-1 bg-white rounded-full shadow-xs w-5 h-5 flex items-center justify-center text-xs">
-                    {hero.badge}
+          {/* Other Reporters (#2, #3, #4) */}
+          <div className="space-y-3">
+            {otherReporters.map((reporter) => (
+              <div
+                key={reporter.rank}
+                className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-slate-50 transition-colors"
+              >
+                {/* Rank & Medal */}
+                <div className="flex items-center justify-center w-8 text-center shrink-0">
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm">{reporter.medal}</span>
+                    <span className="text-[10px] font-black text-slate-500">#{reporter.rank}</span>
+                  </div>
+                </div>
+
+                {/* Avatar */}
+                <div className="relative shrink-0">
+                  <img
+                    src={reporter.avatar}
+                    alt={reporter.name}
+                    className="w-11 h-11 rounded-full object-cover border-2 border-slate-200/80"
+                  />
+                  <span className="absolute -bottom-1 -right-1 bg-white rounded-full shadow-2xs w-4 h-4 flex items-center justify-center text-[10px]">
+                    {reporter.badge}
                   </span>
                 </div>
-                <span className="text-[10px] font-black text-slate-800 mt-2 truncate w-full">{hero.name}</span>
-                <span className="text-[9px] font-bold text-slate-400 mt-0.5">{hero.reports} reports</span>
+
+                {/* Info & Progress Bar */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-800 truncate">
+                      {reporter.name}
+                    </span>
+                    <span className="text-[11px] font-extrabold text-blue-600">
+                      {reporter.reports} reports
+                    </span>
+                  </div>
+
+                  {/* Relative Progress Bar */}
+                  <div className="mt-1.5">
+                    <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-0.5">
+                      <span>vs Leader</span>
+                      <span>{reporter.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200/70 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${reporter.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* SECTION 6 — OFFICIAL UPDATES */}
-        <div className="bg-white rounded-2xl p-4 border-l-4 border-blue-500 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-          <div className="flex items-center gap-2 mb-2">
-            <Building className="w-4 h-4 text-blue-500" />
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-black text-slate-900">City of SF Public Works</span>
-              <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-bold">
-                ✓
+        {/* SECTION 2 — MOTIVATIONAL USER RANK CALLOUT */}
+        <div
+          onClick={handleReportClick}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-dashed border-blue-300/80 p-4 shadow-2xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer active:scale-[0.99]"
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-200 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+              🏅
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-blue-700">
+                  Your Rank This Month
+                </span>
+                <span className="inline-flex items-center text-[11px] font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform">
+                  Report Now <ChevronRight className="w-3.5 h-3.5" />
+                </span>
               </div>
+              <p className="text-xs text-slate-700 font-medium mt-1 leading-relaxed">
+                You are not ranked yet this month. Submit reports to climb the leaderboard!
+              </p>
             </div>
           </div>
+        </div>
+
+        {/* SECTION 3 — CITY OF SF PUBLIC WORKS NOTICE CARD */}
+        <div className="bg-white rounded-2xl p-5 border-l-4 border-l-blue-600 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <Building className="w-4 h-4" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-slate-900">City of SF Public Works</span>
+                <div className="w-3.5 h-3.5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-bold">
+                  ✓
+                </div>
+              </div>
+            </div>
+
+            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/80 px-2 py-0.5 rounded-md">
+              📢 NOTICE
+            </span>
+          </div>
+
           <p className="text-xs text-slate-600 font-medium leading-relaxed">
             Scheduled maintenance on Mission St this Friday 6AM-2PM. Expect lane closures and slow traffic.
           </p>
-          <a href="#" onClick={(e) => e.preventDefault()} className="inline-flex items-center text-[10px] font-extrabold text-blue-600 mt-3 hover:underline">
-            View Full Schedule →
-          </a>
+
+          <div className="mt-4 pt-3 border-t border-slate-100/80 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setScheduleModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-blue-600 bg-blue-50/50 hover:bg-blue-50 border border-blue-200 transition-all hover:border-blue-300 active:scale-95 cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>View Full Schedule →</span>
+            </button>
+            <span className="text-[10px] font-semibold text-slate-400">Updated today</span>
+          </div>
         </div>
       </div>
+
+      {/* SCHEDULE MODAL */}
+      {scheduleModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-black text-slate-900">Public Works Schedule</h3>
+              </div>
+              <button
+                onClick={() => setScheduleModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100">
+                <span className="font-extrabold text-blue-900 block">Mission St Resurfacing</span>
+                <span className="text-slate-600 text-[11px]">Friday, 6:00 AM – 2:00 PM • Lane Closures</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="font-extrabold text-slate-800 block">Market St Water Main Maintenance</span>
+                <span className="text-slate-600 text-[11px]">Saturday, 11:00 PM – 5:00 AM • Low Pressure</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setScheduleModalOpen(false)}
+              className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
