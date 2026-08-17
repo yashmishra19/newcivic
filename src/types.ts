@@ -1,4 +1,4 @@
-export type IssueSeverity = 'critical' | 'moderate' | 'low' | 'resolved';
+export type IssueSeverity = 'critical' | 'high' | 'moderate' | 'low' | 'resolved';
 
 export type IssueCategory = 
   | 'pothole'
@@ -8,7 +8,8 @@ export type IssueCategory =
   | 'graffiti'
   | 'sidewalk'
   | 'illegal_dumping'
-  | 'fallen_tree';
+  | 'fallen_tree'
+  | 'other';
 
 export interface TimelineEvent {
   id: string;

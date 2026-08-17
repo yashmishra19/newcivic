@@ -13,41 +13,56 @@ import Analytics from './pages/admin/Analytics';
 import Reports from './pages/admin/Reports';
 import Notifications from './pages/admin/Notifications';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [auth, setAuth] = useState<any>(() => {
-    const saved = localStorage.getItem('civicwatch_auth');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const now = Date.now();
-      const ONE_DAY = 24 * 60 * 60 * 1000;
-      if (parsed.loginTime && now - parsed.loginTime > ONE_DAY) {
-        localStorage.removeItem('civicwatch_auth');
-        return null;
+    try {
+      const saved = localStorage.getItem('civicwatch_auth');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const now = Date.now();
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        if (parsed.loginTime && now - parsed.loginTime > ONE_DAY) {
+          localStorage.removeItem('civicwatch_auth');
+          return null;
+        }
+        return parsed;
       }
-      return parsed;
+      return null;
+    } catch (e) {
+      console.error("Failed to parse auth from localStorage", e);
+      localStorage.removeItem('civicwatch_auth');
+      return null;
     }
-    return null;
   });
 
+  // Temporary debug - remove after fix
+  console.log('App rendering, auth:', auth);
+
   if (!auth?.loggedIn) {
-    return <AuthScreen onAuthSuccess={(data) => setAuth(data)} />;
+    return (
+      <ErrorBoundary fallbackTitle="Authentication Screen Error">
+        <AuthScreen onAuthSuccess={(data) => setAuth(data)} />
+      </ErrorBoundary>
+    );
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Citizen-facing app (blocked for Admin, redirects to /admin) */}
-        <Route 
-          path="/" 
-          element={auth.role === 'admin' ? <Navigate to="/admin" replace /> : <CitizenApp />} 
-        />
+    <ErrorBoundary fallbackTitle="App Root Error">
+      <BrowserRouter>
+        <Routes>
+          {/* Citizen-facing app (blocked for Admin, redirects to /admin) */}
+          <Route 
+            path="/" 
+            element={auth.role === 'admin' ? <Navigate to="/admin" replace /> : <CitizenApp />} 
+          />
 
-        {/* Admin dashboard (blocked for User, redirects to /) */}
-        <Route 
-          path="/admin" 
-          element={auth.role === 'admin' ? <AdminLayout /> : <Navigate to="/" replace />}
-        >
+          {/* Admin dashboard (blocked for User, redirects to /) */}
+          <Route 
+            path="/admin" 
+            element={auth.role === 'admin' ? <AdminLayout /> : <Navigate to="/" replace />}
+          >
           <Route index element={<Dashboard />} />
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:id" element={<IncidentDetails />} />
@@ -64,5 +79,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
