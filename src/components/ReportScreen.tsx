@@ -91,8 +91,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
     'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80'
   );
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<IssueCategory>('pothole');
-  const [severity, setSeverity] = useState<IssueSeverity>('critical');
+  const [category, setCategory] = useState<string>('Pothole / Road');
+  const [severity, setSeverity] = useState<string>('Critical Hazard');
   const [address, setAddress] = useState('550 Mission St, Downtown District 4');
   const [neighborhood, setNeighborhood] = useState('Downtown District 4');
   const [jurisdiction, setJurisdiction] = useState<'Public' | 'Private'>('Public');
@@ -149,12 +149,16 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
       if (result.aiAnalysis) {
         if (result.aiAnalysis.verified === false) {
-          setPipelineError(result.aiAnalysis.summary || 'Image verification failed: Not a real hazard.');
+          setPipelineError('AI analysis failed. Please fill the form manually.');
           return;
         }
 
-        setCategory(result.aiAnalysis.category);
-        setSeverity(result.aiAnalysis.severity);
+        setCategory(result.aiAnalysis.categoryLabel);
+        setSeverity(
+          result.aiAnalysis.severity === 'critical' ? 'Critical Hazard' :
+          result.aiAnalysis.severity === 'high' ? 'High' :
+          result.aiAnalysis.severity === 'moderate' ? 'Medium' : 'Low'
+        );
         setDepartment(result.aiAnalysis.department);
         setAddress(result.location.address);
         setNeighborhood(result.location.neighborhood);
@@ -170,7 +174,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
       }
     } catch (err: any) {
       console.error('Error running AI pipeline:', err);
-      setPipelineError(err.message || 'Pipeline execution failed.');
+      setPipelineError('AI analysis failed. Please fill the form manually.');
     } finally {
       setIsAiAnalyzing(false);
     }
@@ -226,10 +230,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
       },
       aiAnalysis: {
         verified: true,
-        category,
-        categoryLabel: category.replace('_', ' ').toUpperCase(),
-        severity,
-        severityScore: severity === 'critical' ? 5 : severity === 'moderate' ? 3 : 1,
+        category: category as IssueCategory,
+        categoryLabel: category,
+        severity: severity as IssueSeverity,
+        severityScore: severity === 'Critical Hazard' ? 5 : severity === 'High' ? 4 : severity === 'Medium' ? 3 : 1,
         confidence: aiConfidence || 95.0,
         department,
         recommendedPriority: severity === 'critical' ? 'Emergency Tier 1' : 'Standard Queue',
@@ -397,26 +401,38 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
               </div>
             </div>
 
-            {/* AI Triage Status Pill */}
+            {/* AI UX States */}
             {isAiAnalyzing ? (
               <div className="p-3 bg-[#e6eeff] border border-[#d5e3fc] rounded-xl text-xs text-[#00288e] font-semibold flex items-center gap-2 animate-pulse">
                 <Sparkles className="w-4 h-4 text-[#1e40af] animate-spin" />
-                <span>{pipelineLabel || 'AI scanning photo for hazard triage & priority...'}</span>
+                <span>AI is analyzing your photo...</span>
               </div>
             ) : pipelineError ? (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <span>{pipelineError}</span>
+                <span>AI analysis failed. Please fill the form manually.</span>
               </div>
-            ) : aiConfidence ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>AI Verified: {severity.toUpperCase()} Priority {category.toUpperCase()}</span>
+            ) : aiConfidence !== null ? (
+              <div className="flex flex-col gap-2">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>AI has pre-filled the form. Please verify before submitting.</span>
                 </div>
-                <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-bold">
-                  {aiConfidence}% Match
-                </span>
+                {aiConfidence < 50 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-xs text-yellow-800 font-semibold flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+                    <span>Low confidence detection. Please verify all fields.</span>
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                    aiConfidence > 80 ? 'bg-emerald-200 text-emerald-900' : 
+                    aiConfidence >= 50 ? 'bg-yellow-200 text-yellow-900' : 'bg-red-200 text-red-900'
+                  }`}>
+                    <Sparkles className="w-3 h-3" />
+                    AI Verified: {category} | {aiConfidence}% Match
+                  </span>
+                </div>
               </div>
             ) : null}
 
@@ -432,8 +448,9 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  disabled={isAiAnalyzing}
                   placeholder="e.g. Severe Asphalt Pothole"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
                 />
               </div>
 
@@ -445,18 +462,17 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   </label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as IssueCategory)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] focus:outline-hidden shadow-xs cursor-pointer"
+                    onChange={(e) => setCategory(e.target.value)}
+                    disabled={isAiAnalyzing}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] focus:outline-hidden shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    <option value="pothole">🕳️ Pothole / Road</option>
-                    <option value="street_light">💡 Streetlight Outage</option>
-                    <option value="water_leak">🚰 Water Main Leak</option>
-                    <option value="traffic_signal">🚦 Traffic Signal</option>
-                    <option value="sidewalk">🚶 Broken Sidewalk</option>
-                    <option value="fallen_tree">🌳 Tree Obstruction</option>
-                    <option value="illegal_dumping">🗑️ Illegal Dumping</option>
-                    <option value="graffiti">🎨 Graffiti / Cleanliness</option>
-                    <option value="other">⚠️ Other Hazard</option>
+                    <option value="Pothole / Road">Pothole / Road</option>
+                    <option value="Street Light">Street Light</option>
+                    <option value="Garbage / Sanitation">Garbage / Sanitation</option>
+                    <option value="Waterlogging">Waterlogging</option>
+                    <option value="Broken Footpath">Broken Footpath</option>
+                    <option value="Encroachment">Encroachment</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 
@@ -466,13 +482,14 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   </label>
                   <select
                     value={severity}
-                    onChange={(e) => setSeverity(e.target.value as IssueSeverity)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] focus:outline-hidden shadow-xs cursor-pointer"
+                    onChange={(e) => setSeverity(e.target.value)}
+                    disabled={isAiAnalyzing}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] focus:outline-hidden shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    <option value="low">🟢 Low Priority</option>
-                    <option value="moderate">🟡 Medium / Moderate</option>
-                    <option value="high">🟠 High Priority</option>
-                    <option value="critical">🔴 Critical Hazard</option>
+                    <option value="Critical Hazard">Critical Hazard</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
                   </select>
                 </div>
               </div>
@@ -489,8 +506,9 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                     required
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                    disabled={isAiAnalyzing}
                     placeholder="e.g. 550 Mission St, Downtown District 4"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-medium text-[#0d1c2e] focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-medium text-[#0d1c2e] focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -504,8 +522,9 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  disabled={isAiAnalyzing}
                   placeholder="Describe hazard dimension, traffic obstruction, or immediate safety danger..."
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-medium text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs"
+                  className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-medium text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
                 />
               </div>
 

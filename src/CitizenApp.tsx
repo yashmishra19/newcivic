@@ -244,6 +244,7 @@ export default function CitizenApp() {
               onViewDetails={(issue) => setDetailIssue(issue)}
               onNavigateToMap={() => setActiveTab('map')}
               onNavigateToReport={() => setActiveTab('report')}
+              onNavigateToProfile={() => setActiveTab('profile')}
               onUpvote={handleUpvote}
             />
           )}

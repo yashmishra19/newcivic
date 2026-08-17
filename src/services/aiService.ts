@@ -248,58 +248,73 @@ export async function analyzeCivicImage(imageFile: File | Blob): Promise<AiCivic
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const imageData = {
-      inlineData: {
-        data: base64Image,
-        mimeType: imageFile.type || "image/jpeg"
-      }
-    };
-
-    const prompt = `Analyze this image. Is it a real outdoor civic hazard 
-(pothole, broken streetlight, water leak, fallen tree, road damage)?
-Respond in JSON only:
+    const prompt = `You are a civic issue classifier for an Indian city reporting app. Analyze this image carefully and respond ONLY with a valid JSON object, no markdown, no explanation, just raw JSON:
 {
-  "verified": true/false,
-  "category": "pothole|streetlight|water_leak|fallen_tree|road_damage|not_a_hazard",
-  "severity": "low|medium|high|critical|null",
-  "confidence": 0-100,
-  "reason": "brief explanation",
-  "suggestedTitle": "auto generated issue title if verified",
-  "suggestedLocation": "guess location type if visible"
-}
-If image is screenshot, selfie, food, indoor, document — verified: false.`;
+  "issueTitle": "short title describing the issue and nearest landmark if visible",
+  "category": "one of exactly: Pothole / Road, Street Light, Garbage / Sanitation, Waterlogging, Broken Footpath, Encroachment, Other",
+  "severity": "one of exactly: Critical Hazard, High, Medium, Low",
+  "description": "2 sentences describing the problem and safety impact",
+  "confidence": a number from 0 to 100
+}`;
 
-    const result = await model.generateContent([prompt, imageData]);
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          mimeType: imageFile.type === 'image/png' ? 'image/png' : 'image/jpeg',
+          data: base64Image
+        }
+      },
+      { text: prompt }
+    ]);
+
     let responseText = result.response.text();
+    
+    // Clean potential markdown wrap
     responseText = responseText.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(responseText);
 
-    const isVerified = parsed.verified === true;
-    const category = mapToIssueCategory(parsed.category || '');
-    const severityScore = parsed.severity === 'critical' ? 5 : parsed.severity === 'high' ? 4 : parsed.severity === 'medium' ? 3 : 1;
-    const severity = mapToIssueSeverity(severityScore);
+    const isVerified = (parsed.confidence >= 50);
+    
+    // Use the exact string categories mapped to our internal type if needed, but we'll adapt our UI to match the exact string values from the prompt.
+    // For now we map them to our existing `IssueCategory` keys to satisfy TS, and let `categoryLabel` hold the exact string.
+    let categoryKey: IssueCategory = 'other';
+    const rawCat = (parsed.category || '').toLowerCase();
+    if (rawCat.includes('pothole') || rawCat.includes('road')) categoryKey = 'pothole';
+    else if (rawCat.includes('light')) categoryKey = 'street_light';
+    else if (rawCat.includes('garbage') || rawCat.includes('sanitation')) categoryKey = 'illegal_dumping';
+    else if (rawCat.includes('waterlogging')) categoryKey = 'water_leak';
+    else if (rawCat.includes('footpath')) categoryKey = 'sidewalk';
+    else if (rawCat.includes('encroachment')) categoryKey = 'other';
+    else if (rawCat.includes('tree')) categoryKey = 'fallen_tree';
+
+    let severityKey: IssueSeverity = 'low';
+    const rawSev = (parsed.severity || '').toLowerCase();
+    if (rawSev.includes('critical')) severityKey = 'critical';
+    else if (rawSev.includes('high')) severityKey = 'high';
+    else if (rawSev.includes('medium')) severityKey = 'moderate';
+
+    const severityScore = severityKey === 'critical' ? 5 : severityKey === 'high' ? 4 : severityKey === 'moderate' ? 3 : 1;
 
     const finalResult: AiCivicAnalysisResult = {
       verified: isVerified,
-      category,
-      categoryLabel: parsed.category || category.replace('_', ' '),
-      severity,
+      category: categoryKey,
+      categoryLabel: parsed.category || categoryKey.replace('_', ' '), // Send exact string back for form mapping
+      severity: severityKey,
       severityScore,
-      summary: parsed.reason || 'Civic hazard detected from image analysis.',
+      summary: parsed.description || 'Civic hazard detected from image analysis.',
       department: 'PWD / Road Maintenance',
       confidence: Number(parsed.confidence) || 95,
       recommendedPriority: severityScore >= 4 ? 'Tier 1 Critical Dispatch' : 'Standard Queue',
       estimatedRepairCost: '$400 - $800',
       location: locationGeo,
       rawResponse: parsed,
-      suggestedTitle: parsed.suggestedTitle,
+      suggestedTitle: parsed.issueTitle,
     };
 
     console.log('[AI Civic Analysis Result (Live Gemini + OSM)]:', finalResult);
     return finalResult;
   } catch (error) {
-    console.warn('[AI Service] Error calling Gemini API. Employing intelligent fallback:', error);
-    const mockResult = getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
-    return { ...mockResult, verified: true };
+    console.error('[AI Service] Error calling Gemini API:', error);
+    throw error; // Rethrow so the UI can catch it
   }
 }

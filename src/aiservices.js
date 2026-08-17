@@ -70,8 +70,8 @@ export function detectJurisdiction(osmData) {
   const addressType = (osmData.addresstype || '').toLowerCase();
 
   if (['building', 'residential', 'premise', 'apartments', 'house', 'commercial', 'industrial'].includes(type) ||
-      ['building', 'residential', 'premise'].includes(osmClass) ||
-      ['building', 'residential'].includes(addressType)) {
+    ['building', 'residential', 'premise'].includes(osmClass) ||
+    ['building', 'residential'].includes(addressType)) {
     return 'Private';
   }
   return 'Public';
@@ -87,7 +87,7 @@ export async function analyzeCivicImage(imageFile) {
 
   // Step 2: Reverse geocode with OSM
   const addressData = await getAddressFromCoords(location.latitude, location.longitude);
-  
+
   // Step 3: Detect jurisdiction
   const jurisdiction = detectJurisdiction(addressData.raw);
 
