@@ -11,6 +11,7 @@ import { ReportScreen } from './components/ReportScreen';
 import { CommunityScreen } from './components/CommunityScreen';
 import { ProfileScreen } from './components/ProfileScreen';
 import { AiDiagnosticsModal } from './components/AiDiagnosticsModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Smartphone, Monitor, ShieldCheck, Sparkles, MapPin, Cpu, LayoutDashboard } from 'lucide-react';
 
 export default function CitizenApp() {
@@ -261,10 +262,12 @@ export default function CitizenApp() {
           )}
 
           {activeTab === 'profile' && (
-            <ProfileScreen
-              issues={issues}
-              onViewDetails={(issue) => setDetailIssue(issue)}
-            />
+            <ErrorBoundary fallbackTitle="Profile Screen Error">
+              <ProfileScreen
+                issues={issues}
+                onViewDetails={(issue) => setDetailIssue(issue)}
+              />
+            </ErrorBoundary>
           )}
         </div>
 
