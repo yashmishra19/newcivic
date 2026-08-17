@@ -1,24 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Mail, Shield, AlertTriangle, ShieldCheck, Download, Ban } from 'lucide-react';
-import { MOCK_CITIZENS, CITIZEN_STATUS_COLORS, CITIZEN_STATUS_LABELS } from '../../data/mockCitizens';
+import { getCitizens } from '../../services/citizens';
+import { CITIZEN_STATUS_COLORS, CITIZEN_STATUS_LABELS } from '../../data/mockCitizens';
 
 const KPI_METRICS = [
-  { label: 'Total Registered', value: '12,482', color: 'text-blue-600', icon: Shield },
-  { label: 'Verified Accounts', value: '8,914', color: 'text-emerald-600', icon: ShieldCheck },
-  { label: 'Pending Review', value: '342', color: 'text-amber-600', icon: AlertTriangle },
-  { label: 'Banned', value: '45', color: 'text-red-600', icon: Ban },
+  { label: 'Total Registered', value: '12,482', color: 'text-blue-600',   icon: Shield       },
+  { label: 'Verified Accounts', value: '8,914', color: 'text-emerald-600', icon: ShieldCheck  },
+  { label: 'Pending Review',    value: '342',   color: 'text-amber-600',   icon: AlertTriangle},
+  { label: 'Banned',           value: '45',    color: 'text-red-600',     icon: Ban          },
 ];
 
 export default function Citizens() {
+  const [citizens, setCitizens] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All Citizens');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  const filteredCitizens = MOCK_CITIZENS.filter((citizen) => {
+
+  useEffect(() => {
+    getCitizens()
+      .then(setCitizens)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredCitizens = citizens.filter((citizen) => {
     if (activeTab === 'Verified Only' && citizen.status !== 'verified' && citizen.status !== 'top-contributor') return false;
     if (activeTab === 'Top Reporters' && citizen.status !== 'top-contributor') return false;
-    if (activeTab === 'Pending' && citizen.status !== 'pending') return false;
-    if (activeTab === 'Banned' && citizen.status !== 'banned') return false;
-    
+    if (activeTab === 'Pending'       && citizen.status !== 'pending')         return false;
+    if (activeTab === 'Banned'        && citizen.status !== 'banned')          return false;
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -29,6 +39,12 @@ export default function Citizens() {
     }
     return true;
   });
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-[1440px]">
@@ -56,16 +72,13 @@ export default function Citizens() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                  activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {tab}
               </button>
             ))}
           </div>
-
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -91,24 +104,26 @@ export default function Citizens() {
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Citizen</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Contact Info</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Neighborhood</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Reports</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Resolved</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Status</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Last Activity</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredCitizens.map((citizen) => {
-                const color = CITIZEN_STATUS_COLORS[citizen.status];
+                const color = CITIZEN_STATUS_COLORS[citizen.status as keyof typeof CITIZEN_STATUS_COLORS] || '#6B7280';
                 return (
                   <tr key={citizen.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <img src={citizen.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[14px]">
+                          {citizen.name.charAt(0)}
+                        </div>
                         <div>
                           <p className="text-[14px] font-semibold text-slate-900">{citizen.name}</p>
-                          <p className="text-[11px] text-slate-500">Joined {citizen.joinedDate}</p>
+                          <p className="text-[11px] text-slate-500">
+                            Joined {new Date(citizen.joined_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -120,30 +135,22 @@ export default function Citizens() {
                       {citizen.neighborhood}
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className="inline-block bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[12px]">
-                        {citizen.reportsSubmitted}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <span className="inline-block bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-lg text-[12px]">
-                        {citizen.resolvedReports}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
                       <span
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border"
-                        style={{ color: color, backgroundColor: `${color}10`, borderColor: `${color}30` }}
+                        style={{ color, backgroundColor: `${color}10`, borderColor: `${color}30` }}
                       >
                         <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                        {CITIZEN_STATUS_LABELS[citizen.status]}
+                        {CITIZEN_STATUS_LABELS[citizen.status as keyof typeof CITIZEN_STATUS_LABELS] || citizen.status}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-[12px] text-slate-500">
-                      {citizen.lastActivity}
+                      {new Date(citizen.last_activity).toLocaleString('en-IN', { 
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                      })}
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors" title="Message Citizen">
+                        <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
                           <Mail className="w-4 h-4" />
                         </button>
                         <button className="text-[12px] font-semibold text-blue-600 hover:text-blue-700 px-3 py-1.5 border border-transparent hover:bg-blue-50 rounded-lg transition-colors">
@@ -156,7 +163,7 @@ export default function Citizens() {
               })}
             </tbody>
           </table>
-          {filteredCitizens.length === 0 && (
+          {filteredCitizens.length === 0 && !loading && (
             <div className="p-8 text-center text-slate-500 text-[13px]">
               No citizens found matching your criteria.
             </div>

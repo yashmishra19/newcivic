@@ -1,56 +1,61 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Search, Filter, Download, ChevronDown, Clock, MapPin,
-  ArrowUpDown, Eye, MoreHorizontal, ChevronLeft, ChevronRight,
+  Search, Download, Clock, MapPin, Eye, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import {
-  MOCK_INCIDENTS, CATEGORY_LABELS, STATUS_LABELS,
-  type Incident, type IncidentPriority, type IncidentStatus, type IncidentCategory,
-} from '../../data/mockIncidents';
+import { CATEGORY_LABELS, STATUS_LABELS } from '../../data/mockIncidents';
+import { getIncidents } from '../../services/incidents';
 
 const PRIORITY_BADGE: Record<string, { bg: string; text: string }> = {
-  critical: { bg: 'bg-red-100', text: 'text-red-700' },
-  high: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  medium: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  low: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  critical: { bg: 'bg-red-100',    text: 'text-red-700'    },
+  high:     { bg: 'bg-orange-100', text: 'text-orange-700' },
+  medium:   { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  low:      { bg: 'bg-blue-100',   text: 'text-blue-700'   },
 };
 
 const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
-  'in-progress': { bg: 'bg-amber-100', text: 'text-amber-700' },
-  assigned: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  reported: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  verified: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  resolved: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  closed: { bg: 'bg-slate-100', text: 'text-slate-600' },
+  'in-progress': { bg: 'bg-amber-100',  text: 'text-amber-700'  },
+  assigned:      { bg: 'bg-blue-100',   text: 'text-blue-700'   },
+  reported:      { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  verified:      { bg: 'bg-violet-100', text: 'text-violet-700' },
+  resolved:      { bg: 'bg-emerald-100',text: 'text-emerald-700'},
+  closed:        { bg: 'bg-slate-100',  text: 'text-slate-600'  },
 };
 
 const PAGE_SIZE = 8;
 
 export default function Incidents() {
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [page, setPage] = useState(1);
 
+  useEffect(() => {
+    getIncidents()
+      .then(setIncidents)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
   const filtered = useMemo(() => {
-    return MOCK_INCIDENTS.filter((inc) => {
+    return incidents.filter((inc) => {
       if (search) {
         const q = search.toLowerCase();
         if (
           !inc.title.toLowerCase().includes(q) &&
           !inc.id.toLowerCase().includes(q) &&
-          !inc.location.address.toLowerCase().includes(q)
-        )
-          return false;
+          !inc.address?.toLowerCase().includes(q)
+        ) return false;
       }
-      if (statusFilter !== 'all' && inc.status !== statusFilter) return false;
+      if (statusFilter !== 'all'   && inc.status   !== statusFilter)   return false;
       if (priorityFilter !== 'all' && inc.priority !== priorityFilter) return false;
       if (categoryFilter !== 'all' && inc.category !== categoryFilter) return false;
       return true;
     });
-  }, [search, statusFilter, priorityFilter, categoryFilter]);
+  }, [incidents, search, statusFilter, priorityFilter, categoryFilter]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -64,11 +69,16 @@ export default function Incidents() {
     return `${Math.floor(hours / 24)}d ago`;
   };
 
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
     <div className="space-y-5 max-w-[1440px]">
       {/* Top Controls */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -80,11 +90,10 @@ export default function Incidents() {
           />
         </div>
 
-        {/* Filters */}
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[13px] text-slate-700 focus:outline-none"
         >
           <option value="all">All Status</option>
           <option value="reported">Reported</option>
@@ -97,7 +106,7 @@ export default function Incidents() {
         <select
           value={priorityFilter}
           onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}
-          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[13px] text-slate-700 focus:outline-none"
         >
           <option value="all">All Priority</option>
           <option value="critical">Critical</option>
@@ -109,7 +118,7 @@ export default function Incidents() {
         <select
           value={categoryFilter}
           onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[13px] text-slate-700 focus:outline-none"
         >
           <option value="all">All Departments</option>
           <option value="public-works">Public Works</option>
@@ -125,12 +134,10 @@ export default function Incidents() {
       </div>
 
       {/* Summary */}
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] text-slate-500">
-          Showing <span className="font-semibold text-slate-700">{paged.length}</span> of{' '}
-          <span className="font-semibold text-slate-700">{filtered.length}</span> incidents
-        </p>
-      </div>
+      <p className="text-[13px] text-slate-500">
+        Showing <span className="font-semibold text-slate-700">{paged.length}</span> of{' '}
+        <span className="font-semibold text-slate-700">{filtered.length}</span> incidents
+      </p>
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden">
@@ -144,27 +151,24 @@ export default function Incidents() {
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Category</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Priority</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Reported</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Team</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                 <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paged.map((inc) => {
-                const pBadge = PRIORITY_BADGE[inc.priority];
-                const sBadge = STATUS_BADGE[inc.status];
+                const pBadge = PRIORITY_BADGE[inc.priority] || PRIORITY_BADGE.low;
+                const sBadge = STATUS_BADGE[inc.status]    || STATUS_BADGE.reported;
                 return (
-                  <tr key={inc.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr key={inc.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-5 py-3.5">
                       <span className="text-[12px] font-mono font-semibold text-slate-500">{inc.id}</span>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={inc.photo}
-                          alt={inc.title}
-                          className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
-                        />
+                        {inc.photo && (
+                          <img src={inc.photo} alt={inc.title} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                        )}
                         <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[200px]">
                           {inc.title}
                         </span>
@@ -173,12 +177,12 @@ export default function Incidents() {
                     <td className="px-5 py-3.5">
                       <span className="text-[12px] text-slate-600 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-slate-400" />
-                        {inc.location.address}
+                        {inc.address}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-[12px] text-slate-600">
-                        {CATEGORY_LABELS[inc.category]}
+                        {CATEGORY_LABELS[inc.category as keyof typeof CATEGORY_LABELS] || inc.category}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
@@ -189,17 +193,12 @@ export default function Incidents() {
                     <td className="px-5 py-3.5">
                       <span className="text-[12px] text-slate-500 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {timeAgo(inc.reportedAt)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-[12px] text-slate-600">
-                        {inc.assignedTeam || '—'}
+                        {timeAgo(inc.reported_at)}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${sBadge.bg} ${sBadge.text} capitalize`}>
-                        {STATUS_LABELS[inc.status]}
+                        {STATUS_LABELS[inc.status as keyof typeof STATUS_LABELS] || inc.status}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
@@ -220,14 +219,12 @@ export default function Incidents() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
-            <p className="text-[12px] text-slate-500">
-              Page {page} of {totalPages}
-            </p>
+            <p className="text-[12px] text-slate-500">Page {page} of {totalPages}</p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -236,9 +233,7 @@ export default function Incidents() {
                   key={p}
                   onClick={() => setPage(p)}
                   className={`w-8 h-8 rounded-lg text-[12px] font-medium flex items-center justify-center transition-colors ${
-                    p === page
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    p === page ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   {p}
@@ -247,7 +242,7 @@ export default function Incidents() {
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

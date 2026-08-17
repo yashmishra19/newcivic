@@ -1,21 +1,44 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
   Wrench, Siren, Recycle, Zap, Shield,
   ArrowRight, Plus, CheckCircle2, AlertCircle, CircleDot,
 } from 'lucide-react';
-import { MOCK_DEPARTMENTS } from '../../data/mockDepartments';
+import { getDepartments } from '../../services/departments';
 
 const DEPT_ICONS: Record<string, any> = {
   Wrench, Siren, Recycle, Zap, Shield,
 };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {
   operational: { label: 'Operational', bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle2 },
-  limited: { label: 'Limited', bg: 'bg-amber-100', text: 'text-amber-700', icon: AlertCircle },
-  offline: { label: 'Offline', bg: 'bg-red-100', text: 'text-red-700', icon: CircleDot },
+  degraded:    { label: 'Limited',     bg: 'bg-amber-100',   text: 'text-amber-700',   icon: AlertCircle  },
+  critical:    { label: 'Offline',     bg: 'bg-red-100',     text: 'text-red-700',     icon: CircleDot    },
 };
 
 export default function Departments() {
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDepartments()
+      .then(setDepartments)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (error) return (
+    <div className="text-red-600 bg-red-50 rounded-xl p-4 text-sm">
+      Failed to load departments: {error}
+    </div>
+  );
+
   return (
     <div className="space-y-6 max-w-[1440px]">
       {/* Top bar */}
@@ -28,9 +51,9 @@ export default function Departments() {
 
       {/* Department cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {MOCK_DEPARTMENTS.map((dept) => {
+        {departments.map((dept) => {
           const Icon = DEPT_ICONS[dept.icon] || Wrench;
-          const statusCfg = STATUS_CONFIG[dept.status];
+          const statusCfg = STATUS_CONFIG[dept.status] || STATUS_CONFIG.operational;
           const StatusIcon = statusCfg.icon;
 
           return (
@@ -62,24 +85,13 @@ export default function Departments() {
                 {dept.description}
               </p>
 
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3 mb-5">
-                {dept.stats.map((stat, i) => (
-                  <div
-                    key={i}
-                    className="bg-slate-50 rounded-lg px-3 py-2.5 text-center"
-                  >
-                    <p className="text-lg font-bold text-slate-900">{stat.value}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-
               {/* Meta */}
               <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                 <div className="text-[11px] text-slate-500">
-                  <span className="font-medium text-slate-700">{dept.headCount}</span> personnel •{' '}
-                  <span className="font-medium text-slate-700">{dept.budget}</span> budget
+                  <span className="font-medium text-slate-700">{dept.head_count}</span> personnel •{' '}
+                  <span className="font-medium text-slate-700">
+                    ₹{(dept.budget / 100000).toFixed(1)}L
+                  </span> budget
                 </div>
                 <button className="text-[12px] font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 group-hover:gap-2 transition-all">
                   View Portfolio <ArrowRight className="w-3.5 h-3.5" />
