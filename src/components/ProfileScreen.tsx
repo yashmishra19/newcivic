@@ -26,6 +26,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ issues, onViewDeta
 
   const myReported = issues.slice(0, 3);
 
+  const auth = JSON.parse(localStorage.getItem('civicwatch_auth') || '{}');
+  const savedUsers = JSON.parse(localStorage.getItem('civicwatch_users') || '[]');
+  const userDb = savedUsers.find((u: any) => u.email.toLowerCase() === auth.email?.toLowerCase()) || {};
+
+  const userName = auth.name || 'Alex Rivera';
+  const userEmail = auth.email || 'alex.rivera@example.com';
+  const userDistrict = userDb.district || auth.district || 'Metro District 4';
+  const userBadge = userDb.badge || 'New Member';
+
+  // Reactively calculate reports count
+  const myIssues = issues.filter(i => i.reportedBy.name.includes('You') || i.reportedBy.name.toLowerCase().includes(userName.toLowerCase()));
+  const myReportsCount = myIssues.length;
+
   return (
     <div className="w-full px-4 pt-4 max-w-md mx-auto space-y-5 pb-8">
       
@@ -35,7 +48,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ issues, onViewDeta
           <img
             className="w-24 h-24 rounded-2xl object-cover border border-slate-200 shadow-sm"
             src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80"
-            alt="Alex Rivera"
+            alt={userName}
             crossOrigin="anonymous"
           />
           <div className="absolute -bottom-2 -right-2 bg-[#1e40af] text-white rounded-full p-1.5 flex items-center justify-center w-8 h-8 shadow-sm">
@@ -45,14 +58,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ issues, onViewDeta
 
         <div className="flex-1 flex flex-col items-center">
           <div className="flex items-center gap-2 mb-1 flex-wrap justify-center">
-            <h1 className="text-xl font-extrabold text-[#0d1c2e]">Alex Rivera</h1>
+            <h1 className="text-xl font-extrabold text-[#0d1c2e]">{userName}</h1>
             <span className="bg-[#e6eeff] text-[#1e40af] px-2.5 py-0.5 rounded-full font-bold text-xs border border-[#d5e3fc]">
-              Level 4 Warden
+              {userBadge}
             </span>
           </div>
-          <p className="text-xs text-[#444653]">alex.rivera@example.com</p>
-          <p className="text-xs text-[#757684] mt-0.5">Downtown District 4 Resident</p>
-          <p className="text-xs font-extrabold text-[#1e40af] mt-2">280 Civic Impact Points</p>
+          <p className="text-xs text-[#444653]">{userEmail}</p>
+          <p className="text-xs text-[#757684] mt-0.5">{userDistrict} Resident</p>
+          <p className="text-xs font-extrabold text-[#1e40af] mt-2">120 Civic Impact Points</p>
         </div>
       </section>
 
@@ -66,13 +79,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ issues, onViewDeta
 
         <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200/80 flex flex-col items-center text-center justify-center">
           <FileText className="w-6 h-6 text-[#1e40af] mb-1.5" />
-          <span className="text-xl font-black text-[#0d1c2e]">12</span>
+          <span className="text-xl font-black text-[#0d1c2e]">{myReportsCount}</span>
           <span className="text-[11px] font-semibold text-[#757684] mt-0.5">My Reports</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200/80 flex flex-col items-center text-center justify-center">
           <CheckCircle className="w-6 h-6 text-emerald-600 mb-1.5" />
-          <span className="text-xl font-black text-[#0d1c2e]">8</span>
+          <span className="text-xl font-black text-[#0d1c2e]">{issues.filter(i => (i.reportedBy.name.includes('You') || i.reportedBy.name.toLowerCase().includes(userName.toLowerCase())) && i.status === 'resolved').length}</span>
           <span className="text-[11px] font-semibold text-[#757684] mt-0.5">Resolved</span>
         </div>
 
@@ -229,6 +242,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ issues, onViewDeta
           </a>
         </div>
       </section>
+
+      {/* Sign Out Button */}
+      <button
+        onClick={() => {
+          localStorage.removeItem('civicwatch_auth');
+          window.location.reload();
+        }}
+        className="w-full py-3.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-center font-bold text-xs shadow-2xs flex items-center justify-center gap-2 cursor-pointer border border-red-200/50 mt-4"
+      >
+        <LogOut className="w-4 h-4 shrink-0" />
+        <span>Sign Out</span>
+      </button>
     </div>
   );
 };
