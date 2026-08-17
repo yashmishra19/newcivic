@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Map, Plus, CheckCircle, User } from 'lucide-react';
+import { Home, Map, Plus, Users, User } from 'lucide-react';
 
-export type TabType = 'home' | 'map' | 'report' | 'resolved' | 'profile';
+export type TabType = 'home' | 'map' | 'report' | 'community' | 'profile';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -14,22 +14,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
 }) => {
   return (
-    <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-md bg-white/95 backdrop-blur-md rounded-full border border-slate-200/80 shadow-[0_8px_30px_rgba(13,28,46,0.08)] px-3 py-2 z-50 transition-all">
-      <div className="flex items-center justify-around relative">
+    <nav className="shrink-0 w-full h-[64px] bg-white/90 backdrop-blur-md border-t border-gray-100 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-50 transition-all">
+      <div className="flex items-center justify-around h-full px-2 relative pb-safe">
         
         {/* Home */}
         <button
           id="nav-tab-home"
           type="button"
           onClick={() => onTabChange('home')}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-1.5 transition-all rounded-full ${
-            activeTab === 'home'
-              ? 'bg-[#e8edff] text-[#1e40af] font-bold'
-              : 'text-slate-500 hover:text-slate-800 font-medium'
-          }`}
+          className="relative flex flex-col items-center justify-center w-16 h-full transition-all duration-200"
         >
-          <Home className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-xs tracking-tight">Home</span>
+          {activeTab === 'home' && (
+            <div className="absolute top-0 w-8 h-[3px] bg-blue-600 rounded-b-full shadow-[0_1px_3px_rgba(37,99,235,0.4)]" />
+          )}
+          <Home className={`w-[22px] h-[22px] mb-1 transition-all duration-200 ${activeTab === 'home' ? 'text-blue-600 stroke-[2.5] scale-110' : 'text-gray-400 stroke-[2]'}`} />
+          <span className={`text-[10px] transition-colors ${activeTab === 'home' ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'}`}>
+            Home
+          </span>
         </button>
 
         {/* Map */}
@@ -37,46 +38,46 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           id="nav-tab-map"
           type="button"
           onClick={() => onTabChange('map')}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-1.5 transition-all rounded-full ${
-            activeTab === 'map'
-              ? 'bg-[#e8edff] text-[#1e40af] font-bold'
-              : 'text-slate-500 hover:text-slate-800 font-medium'
-          }`}
+          className="relative flex flex-col items-center justify-center w-16 h-full transition-all duration-200"
         >
-          <Map className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-xs tracking-tight">Map</span>
+          {activeTab === 'map' && (
+            <div className="absolute top-0 w-8 h-[3px] bg-blue-600 rounded-b-full shadow-[0_1px_3px_rgba(37,99,235,0.4)]" />
+          )}
+          <Map className={`w-[22px] h-[22px] mb-1 transition-all duration-200 ${activeTab === 'map' ? 'text-blue-600 stroke-[2.5] scale-110' : 'text-gray-400 stroke-[2]'}`} />
+          <span className={`text-[10px] transition-colors ${activeTab === 'map' ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'}`}>
+            Map
+          </span>
         </button>
 
-        {/* Report (Primary Action matching screen.png) */}
+        {/* Report (Prominent FAB) */}
         <button
           id="nav-tab-report"
           type="button"
           onClick={() => onTabChange('report')}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 px-3.5 py-1.5 transition-all rounded-full ${
-            activeTab === 'report'
-              ? 'bg-[#e8edff] text-[#1e40af] font-bold'
-              : 'text-slate-500 hover:text-slate-800 font-medium'
-          }`}
+          className="relative flex flex-col items-center justify-center w-16 transition-all duration-200 -mt-6 active:scale-95"
         >
-          <div className="w-5 h-5 rounded-full border-2 border-[#1e40af] flex items-center justify-center text-[#1e40af] font-black text-xs">
-            +
+          <div className="w-[56px] h-[56px] rounded-full bg-[#2563EB] flex items-center justify-center shadow-[0_4px_14px_rgba(37,99,235,0.5)] border-[3px] border-white z-10 transition-transform">
+            <Plus className="w-7 h-7 text-white stroke-[3]" />
           </div>
-          <span className="text-xs tracking-tight">Report</span>
+          <span className="text-[10px] font-semibold text-blue-600 mt-1">
+            Report
+          </span>
         </button>
 
-        {/* Resolved */}
+        {/* Community */}
         <button
-          id="nav-tab-resolved"
+          id="nav-tab-community"
           type="button"
-          onClick={() => onTabChange('resolved')}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-1.5 transition-all rounded-full ${
-            activeTab === 'resolved'
-              ? 'bg-[#e8edff] text-[#1e40af] font-bold'
-              : 'text-slate-500 hover:text-slate-800 font-medium'
-          }`}
+          onClick={() => onTabChange('community')}
+          className="relative flex flex-col items-center justify-center w-16 h-full transition-all duration-200"
         >
-          <CheckCircle className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-xs tracking-tight">Resolved</span>
+          {activeTab === 'community' && (
+            <div className="absolute top-0 w-8 h-[3px] bg-blue-600 rounded-b-full shadow-[0_1px_3px_rgba(37,99,235,0.4)]" />
+          )}
+          <Users className={`w-[22px] h-[22px] mb-1 transition-all duration-200 ${activeTab === 'community' ? 'text-blue-600 stroke-[2.5] scale-110' : 'text-gray-400 stroke-[2]'}`} />
+          <span className={`text-[10px] transition-colors ${activeTab === 'community' ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'}`}>
+            Community
+          </span>
         </button>
 
         {/* Profile */}
@@ -84,14 +85,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           id="nav-tab-profile"
           type="button"
           onClick={() => onTabChange('profile')}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-1.5 transition-all rounded-full ${
-            activeTab === 'profile'
-              ? 'bg-[#e8edff] text-[#1e40af] font-bold'
-              : 'text-slate-500 hover:text-slate-800 font-medium'
-          }`}
+          className="relative flex flex-col items-center justify-center w-16 h-full transition-all duration-200"
         >
-          <User className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-xs tracking-tight">Profile</span>
+          {activeTab === 'profile' && (
+            <div className="absolute top-0 w-8 h-[3px] bg-blue-600 rounded-b-full shadow-[0_1px_3px_rgba(37,99,235,0.4)]" />
+          )}
+          <User className={`w-[22px] h-[22px] mb-1 transition-all duration-200 ${activeTab === 'profile' ? 'text-blue-600 stroke-[2.5] scale-110' : 'text-gray-400 stroke-[2]'}`} />
+          <span className={`text-[10px] transition-colors ${activeTab === 'profile' ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'}`}>
+            Profile
+          </span>
         </button>
 
       </div>

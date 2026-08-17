@@ -22,7 +22,7 @@ export const ResolvedScreen: React.FC<ResolvedScreenProps> = ({
   });
 
   return (
-    <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 max-w-md mx-auto w-full space-y-5">
+    <div className="w-full px-4 pt-4 max-w-md mx-auto space-y-5 pb-8">
       {/* Header */}
       <div>
         <span className="text-[11px] font-bold tracking-wider uppercase text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">

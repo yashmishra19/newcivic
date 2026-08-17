@@ -44,7 +44,7 @@ export async function executeAiTriagePipeline(
     const location = await getLiveLocationWithAddress();
 
     // Step 3: Multimodal Vision AI triage
-    onStepProgress?.('analyzing', 3, 'Running Gemini Vision AI hazard detection...');
+    onStepProgress?.('analyzing', 3, 'AI is analyzing your photo...');
     const aiAnalysis = await analyzeCivicImage(file);
 
     onStepProgress?.('completed', 4, 'Incident triage complete!');

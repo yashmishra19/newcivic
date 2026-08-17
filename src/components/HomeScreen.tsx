@@ -6,12 +6,12 @@ import {
   ChevronDown,
   ChevronRight,
   MapPin,
-  ShieldAlert,
   ThumbsUp,
   User,
   Wrench,
 } from 'lucide-react';
 import { CivicIssue } from '../types';
+import { SubmittedReportsCard } from './SubmittedReportsCard';
 
 interface HomeScreenProps {
   issues: CivicIssue[];
@@ -19,6 +19,7 @@ interface HomeScreenProps {
   onViewDetails: (issue: CivicIssue) => void;
   onNavigateToMap: () => void;
   onNavigateToReport: () => void;
+  onNavigateToProfile?: () => void;
   onUpvote: (id: string) => void;
 }
 
@@ -28,6 +29,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onViewDetails,
   onNavigateToMap,
   onNavigateToReport,
+  onNavigateToProfile,
   onUpvote,
 }) => {
   const criticalIssues = issues.filter((i) => i.severity === 'critical');
@@ -41,7 +43,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pb-28 bg-[#f8f9ff] w-full">
+    <div className="w-full bg-[#f8f9ff]">
       <div className="max-w-md mx-auto w-full px-4 pt-4 space-y-5">
         
         {/* ================= 1. TOP LOCATION ROW ================= */}
@@ -77,7 +79,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </button>
             
             {/* User Avatar */}
-            <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 shadow-xs bg-slate-100 flex items-center justify-center text-slate-500">
+            <div
+              onClick={onNavigateToProfile}
+              className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 shadow-xs bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+            >
               <img
                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
                 alt="User Avatar"
@@ -87,57 +92,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
         </div>
 
-        {/* ================= 2B. HOME SCREEN TITLE & QUICK STATS (Matching screen.png) ================= */}
-        <div className="space-y-3">
-          <h2 className="text-2xl font-extrabold text-[#0d1c2e] tracking-tight">
-            Home screen
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-              <span className="text-xs font-bold text-[#757684] block">Issue report</span>
-              <span className="text-2xl font-black text-[#0d1c2e] mt-1 block">187</span>
-            </div>
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-              <span className="text-xs font-bold text-[#757684] block">Photos resolved</span>
-              <span className="text-2xl font-black text-[#0d1c2e] mt-1 block">0</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ================= 3. ACTIVE ROAD ALERT ================= */}
-        <div className="bg-white rounded-2xl p-4 border border-red-100 shadow-xs">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 bg-red-50 rounded-xl text-red-600 flex-shrink-0">
-              <ShieldAlert className="w-5.5 h-5.5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-black tracking-wider text-red-600 uppercase">
-                  ACTIVE ROAD ALERT
-                </span>
-                <span className="text-[10px] font-medium text-slate-400">
-                  2 min ago
-                </span>
-              </div>
-              
-              <h3 className="font-extrabold text-[15px] text-[#0d1c2e] leading-snug mt-1">
-                2 critical incidents near Main Street
-              </h3>
-              
-              <p className="text-xs text-[#444653] mt-1 leading-relaxed">
-                Main St corridor has 2 critical pothole & obstruction warnings.
-              </p>
-              
-              <button
-                onClick={onNavigateToMap}
-                className="mt-3.5 w-full bg-[#1e40af] hover:bg-[#00288e] text-white py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-md hover:shadow-blue-900/10 flex items-center justify-center gap-1 transition-all active:scale-[0.98]"
-              >
-                <span>View On Live Map</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* ================= 3. MY SUBMITTED REPORTS CARD ================= */}
+        <SubmittedReportsCard
+          issues={issues}
+          onViewDetails={onViewDetails}
+          onViewAll={onNavigateToProfile}
+        />
 
         {/* ================= 4. INCIDENTS SECTION HEADER ================= */}
         <div className="pt-2">

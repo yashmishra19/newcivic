@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import CitizenApp from './CitizenApp';
 import AdminLayout from './components/layout/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
@@ -11,16 +12,42 @@ import Citizens from './pages/admin/Citizens';
 import Analytics from './pages/admin/Analytics';
 import Reports from './pages/admin/Reports';
 import Notifications from './pages/admin/Notifications';
+import { AuthScreen } from './components/auth/AuthScreen';
 
 export default function App() {
+  const [auth, setAuth] = useState<any>(() => {
+    const saved = localStorage.getItem('civicwatch_auth');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const now = Date.now();
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      if (parsed.loginTime && now - parsed.loginTime > ONE_DAY) {
+        localStorage.removeItem('civicwatch_auth');
+        return null;
+      }
+      return parsed;
+    }
+    return null;
+  });
+
+  if (!auth?.loggedIn) {
+    return <AuthScreen onAuthSuccess={(data) => setAuth(data)} />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* Citizen-facing app */}
-        <Route path="/" element={<CitizenApp />} />
+        {/* Citizen-facing app (blocked for Admin, redirects to /admin) */}
+        <Route 
+          path="/" 
+          element={auth.role === 'admin' ? <Navigate to="/admin" replace /> : <CitizenApp />} 
+        />
 
-        {/* Admin dashboard */}
-        <Route path="/admin" element={<AdminLayout />}>
+        {/* Admin dashboard (blocked for User, redirects to /) */}
+        <Route 
+          path="/admin" 
+          element={auth.role === 'admin' ? <AdminLayout /> : <Navigate to="/" replace />}
+        >
           <Route index element={<Dashboard />} />
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:id" element={<IncidentDetails />} />
@@ -32,6 +59,9 @@ export default function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>
+
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
