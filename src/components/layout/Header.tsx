@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Search, Bell, ChevronRight } from 'lucide-react';
+import { Search, Bell, ChevronRight, LogOut } from 'lucide-react';
 import { MOCK_NOTIFICATIONS } from '../../data/mockNotifications';
 
 const ROUTE_META: Record<string, { title: string; subtitle: string; breadcrumb: string[] }> = {
@@ -102,6 +102,19 @@ export default function Header({ searchQuery, onSearchChange }: HeaderProps) {
                 {unreadCount}
               </span>
             )}
+          </button>
+
+          {/* Admin Sign Out Button */}
+          <button 
+            onClick={() => {
+              localStorage.removeItem('civicwatch_auth');
+              window.history.replaceState({}, '', '/');
+              window.location.reload();
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer shrink-0"
+          >
+            <LogOut size={16} />
+            <span>Sign Out</span>
           </button>
 
           {/* Admin avatar */}

@@ -1,10 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, User, Phone, MapPin, Eye as EyeIcon, AlertCircle, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Phone, MapPin, AlertCircle, RefreshCw, ArrowUpRight } from 'lucide-react';
 
 // Hardcoded Admin Credentials
 export const ADMIN_EMAIL = 'admin@civicwatch.com';
 export const ADMIN_PASSWORD = 'CIVIC@ADMIN2026';
 export const ADMIN_CODE = 'CWADMIN999';
+
+// Mock User Credentials for testing
+export const MOCK_USERS = [
+  {
+    id: 1,
+    name: 'Alex Rivera',
+    email: 'alex@civicwatch.com',
+    password: 'User@1234',
+    phone: '9876543210',
+    district: 'Metro District 4',
+    role: 'user',
+    reportsCount: 12,
+    badge: 'Active Reporter',
+    avatar: null,
+    joinedAt: '2026-01-15',
+  },
+  {
+    id: 2,
+    name: 'Maya Lin',
+    email: 'maya@civicwatch.com',
+    password: 'User@1234',
+    phone: '9123456780',
+    district: 'Metro District 2',
+    role: 'user',
+    reportsCount: 34,
+    badge: 'Civic Hero',
+    avatar: null,
+    joinedAt: '2025-11-20',
+  },
+  {
+    id: 3,
+    name: 'Robert Sterling',
+    email: 'robert@civicwatch.com',
+    password: 'User@1234',
+    phone: '9988776655',
+    district: 'Metro District 1',
+    role: 'user',
+    reportsCount: 7,
+    badge: 'New Member',
+    avatar: null,
+    joinedAt: '2026-07-01',
+  },
+];
 
 interface AuthScreenProps {
   onAuthSuccess: (authData: { role: 'admin' | 'user'; name: string; email: string }) => void;
@@ -30,6 +73,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [signupDistrict, setSignupDistrict] = useState('Metro District 1');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+
+  // Pre-load mock users on first launch
+  useEffect(() => {
+    if (!localStorage.getItem('civicwatch_users')) {
+      // Hash mock passwords with btoa before storing
+      const usersToStore = MOCK_USERS.map((u) => ({
+        ...u,
+        password: btoa(u.password),
+      }));
+      localStorage.setItem('civicwatch_users', JSON.stringify(usersToStore));
+    }
+  }, []);
 
   // Splash Screen Timer
   useEffect(() => {
@@ -325,8 +380,49 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
             <div className="relative flex py-2 items-center text-slate-300">
               <div className="flex-grow border-t border-slate-150"></div>
-              <span className="flex-shrink mx-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">or</span>
+              <span className="flex-shrink mx-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Demo Credentials</span>
               <div className="flex-grow border-t border-slate-150"></div>
+            </div>
+
+            {/* Demo Credential Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail('alex@civicwatch.com');
+                  setLoginPassword('User@1234');
+                  setAdminAccessCode('');
+                  setErrorMsg(null);
+                }}
+                className="bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl p-3 text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">👤</span>
+                  <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                </div>
+                <p className="text-[10px] font-extrabold text-slate-800">Try as User</p>
+                <p className="text-[9px] text-slate-400 font-bold mt-1 truncate">alex@civicwatch.com</p>
+                <p className="text-[9px] text-slate-400 font-mono mt-0.5">User@1234</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail(ADMIN_EMAIL);
+                  setLoginPassword(ADMIN_PASSWORD);
+                  setAdminAccessCode(ADMIN_CODE);
+                  setErrorMsg(null);
+                }}
+                className="bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-300 rounded-xl p-3 text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">🔐</span>
+                  <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-red-500 transition-colors" />
+                </div>
+                <p className="text-[10px] font-extrabold text-slate-800">Try as Admin</p>
+                <p className="text-[9px] text-slate-400 font-bold mt-1 truncate">admin@civicwatch.com</p>
+                <p className="text-[9px] text-slate-400 font-mono mt-0.5">Code: CWADMIN999</p>
+              </button>
             </div>
 
             <p className="text-center text-xs text-slate-500 font-medium">
