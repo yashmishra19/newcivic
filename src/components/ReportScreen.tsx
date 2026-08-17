@@ -148,6 +148,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
       );
 
       if (result.aiAnalysis) {
+        if (result.aiAnalysis.verified === false) {
+          setPipelineError(result.aiAnalysis.summary || 'Image verification failed: Not a real hazard.');
+          return;
+        }
+
         setCategory(result.aiAnalysis.category);
         setSeverity(result.aiAnalysis.severity);
         setDepartment(result.aiAnalysis.department);
@@ -157,7 +162,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
         setCoords({ lat: result.location.lat, lng: result.location.lng });
         setAiConfidence(result.aiAnalysis.confidence);
         setAiSummary(result.aiAnalysis.summary);
-        setTitle(`${result.aiAnalysis.categoryLabel} on ${result.location.address.split(',')[0]}`);
+        setTitle(result.aiAnalysis.suggestedTitle || `${result.aiAnalysis.categoryLabel} on ${result.location.address.split(',')[0]}`);
         setDescription(result.aiAnalysis.summary);
         if (result.imageUrl) {
           setImageUrl(result.imageUrl);
@@ -220,6 +225,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
         source: 'gps',
       },
       aiAnalysis: {
+        verified: true,
         category,
         categoryLabel: category.replace('_', ' ').toUpperCase(),
         severity,
@@ -396,6 +402,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
               <div className="p-3 bg-[#e6eeff] border border-[#d5e3fc] rounded-xl text-xs text-[#00288e] font-semibold flex items-center gap-2 animate-pulse">
                 <Sparkles className="w-4 h-4 text-[#1e40af] animate-spin" />
                 <span>{pipelineLabel || 'AI scanning photo for hazard triage & priority...'}</span>
+              </div>
+            ) : pipelineError ? (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{pipelineError}</span>
               </div>
             ) : aiConfidence ? (
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center justify-between">

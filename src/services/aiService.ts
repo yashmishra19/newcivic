@@ -14,6 +14,7 @@ export interface LocationGeoData {
 }
 
 export interface AiCivicAnalysisResult {
+  verified: boolean;
   category: IssueCategory;
   categoryLabel: string;
   severity: IssueSeverity;
@@ -25,6 +26,7 @@ export interface AiCivicAnalysisResult {
   estimatedRepairCost?: string;
   location: LocationGeoData;
   rawResponse?: any;
+  suggestedTitle?: string;
 }
 
 // Convert File / Blob to Base64 string for Gemini API
@@ -191,6 +193,7 @@ export function getMockAiAnalysis(
   }
 
   const result: AiCivicAnalysisResult = {
+    verified: true,
     category,
     categoryLabel,
     severity,
@@ -206,6 +209,8 @@ export function getMockAiAnalysis(
   console.log('[AI Civic Analysis Result (Fallback Engine)]:', result);
   return result;
 }
+
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // 4. Main function: Integrate into analyzeCivicImage
 export async function analyzeCivicImage(imageFile: File | Blob): Promise<AiCivicAnalysisResult> {
@@ -232,97 +237,69 @@ export async function analyzeCivicImage(imageFile: File | Blob): Promise<AiCivic
     raw: addressData.raw,
   };
 
-  // If Gemini key is missing or placeholder, use rich fallback
   if (!isGeminiConfigured()) {
-    console.info('[AI Service] Running Intelligent AI Fallback with live OSM Geocoding & Jurisdiction.');
+    console.info('[AI Service] Gemini Key missing. Running Fallback with OSM Geocoding & Jurisdiction.');
     await new Promise((r) => setTimeout(r, 900));
-    return getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
+    const mockResult = getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
+    return { ...mockResult, verified: true };
   }
 
   try {
-    const prompt = `
-Analyze this civic issue photo.
-Respond ONLY with a valid JSON object matching this exact schema:
-{
-  "category": "Pothole" | "Garbage Dump" | "Waterlogging" | "Broken Streetlight" | "Broken Sidewalk" | "Fallen Tree" | "Other",
-  "severity": 1 to 5,
-  "summary": "one clear sentence describing the problem",
-  "department": "PWD / Road Maintenance" | "Solid Waste Management" | "Electrical" | "Drainage" | "Urban Forestry",
-  "confidence": 85 to 99,
-  "recommendedPriority": "Tier 1 Critical Dispatch" | "Standard Maintenance Queue",
-  "estimatedRepairCost": "$300 - $800"
-}
-Do not add markdown formatting, code fences or extra text. Return raw JSON.
-    `.trim();
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            {
-              inline_data: {
-                mime_type: imageFile.type || 'image/jpeg',
-                data: base64Image,
-              },
-            },
-          ],
-        },
-      ],
+    const imageData = {
+      inlineData: {
+        data: base64Image,
+        mimeType: imageFile.type || "image/jpeg"
+      }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const prompt = `Analyze this image. Is it a real outdoor civic hazard 
+(pothole, broken streetlight, water leak, fallen tree, road damage)?
+Respond in JSON only:
+{
+  "verified": true/false,
+  "category": "pothole|streetlight|water_leak|fallen_tree|road_damage|not_a_hazard",
+  "severity": "low|medium|high|critical|null",
+  "confidence": 0-100,
+  "reason": "brief explanation",
+  "suggestedTitle": "auto generated issue title if verified",
+  "suggestedLocation": "guess location type if visible"
+}
+If image is screenshot, selfie, food, indoor, document — verified: false.`;
 
-    if (!response.ok) {
-      console.warn(`[AI Service] Gemini API returned HTTP ${response.status}. Employing fallback.`);
-      return getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
-    }
+    const result = await model.generateContent([prompt, imageData]);
+    let responseText = result.response.text();
+    responseText = responseText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(responseText);
 
-    const rawData = await response.json();
-    const aiText = rawData?.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, '')?.trim() || '{}';
-    const parsed = JSON.parse(aiText);
-
+    const isVerified = parsed.verified === true;
     const category = mapToIssueCategory(parsed.category || '');
-    const severityScore = Number(parsed.severity) || 3;
+    const severityScore = parsed.severity === 'critical' ? 5 : parsed.severity === 'high' ? 4 : parsed.severity === 'medium' ? 3 : 1;
     const severity = mapToIssueSeverity(severityScore);
 
     const finalResult: AiCivicAnalysisResult = {
+      verified: isVerified,
       category,
       categoryLabel: parsed.category || category.replace('_', ' '),
       severity,
       severityScore,
-      summary: parsed.summary || 'Civic hazard detected from image analysis.',
-      department: parsed.department || 'PWD / Road Maintenance',
-      confidence: Number(parsed.confidence) || 97.2,
-      recommendedPriority: parsed.recommendedPriority || (severityScore >= 4 ? 'Tier 1 Critical Dispatch' : 'Standard Queue'),
-      estimatedRepairCost: parsed.estimatedRepairCost || '$400 - $800',
+      summary: parsed.reason || 'Civic hazard detected from image analysis.',
+      department: 'PWD / Road Maintenance',
+      confidence: Number(parsed.confidence) || 95,
+      recommendedPriority: severityScore >= 4 ? 'Tier 1 Critical Dispatch' : 'Standard Queue',
+      estimatedRepairCost: '$400 - $800',
       location: locationGeo,
       rawResponse: parsed,
+      suggestedTitle: parsed.suggestedTitle,
     };
 
-    // Print final output example to console as requested
-    console.log('[AI Civic Analysis Result (Live Gemini + OSM)]:', {
-      category: finalResult.categoryLabel,
-      severity: finalResult.severityScore,
-      summary: finalResult.summary,
-      department: finalResult.department,
-      location: {
-        latitude: finalResult.location.latitude,
-        longitude: finalResult.location.longitude,
-        address: finalResult.location.address,
-        jurisdiction: finalResult.location.jurisdiction,
-      },
-    });
-
+    console.log('[AI Civic Analysis Result (Live Gemini + OSM)]:', finalResult);
     return finalResult;
   } catch (error) {
     console.warn('[AI Service] Error calling Gemini API. Employing intelligent fallback:', error);
-    return getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
+    const mockResult = getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
+    return { ...mockResult, verified: true };
   }
 }

@@ -8,7 +8,7 @@ import { IssueDetailModal } from './components/IssueDetailModal';
 import { FilterModal } from './components/FilterModal';
 import { HomeScreen } from './components/HomeScreen';
 import { ReportScreen } from './components/ReportScreen';
-import { ResolvedScreen } from './components/ResolvedScreen';
+import { CommunityScreen } from './components/CommunityScreen';
 import { ProfileScreen } from './components/ProfileScreen';
 import { AiDiagnosticsModal } from './components/AiDiagnosticsModal';
 import { Smartphone, Monitor, ShieldCheck, Sparkles, MapPin, Cpu, LayoutDashboard } from 'lucide-react';
@@ -255,12 +255,8 @@ export default function CitizenApp() {
             />
           )}
 
-          {activeTab === 'resolved' && (
-            <ResolvedScreen
-              issues={issues}
-              onViewDetails={(issue) => setDetailIssue(issue)}
-              onNavigateToMap={() => setActiveTab('map')}
-            />
+          {activeTab === 'community' && (
+            <CommunityScreen />
           )}
 
           {activeTab === 'profile' && (

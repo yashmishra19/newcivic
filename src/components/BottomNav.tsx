@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Map, Plus, CheckCircle, User } from 'lucide-react';
+import { Home, Map, Plus, Users, User } from 'lucide-react';
 
-export type TabType = 'home' | 'map' | 'report' | 'resolved' | 'profile';
+export type TabType = 'home' | 'map' | 'report' | 'community' | 'profile';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -64,19 +64,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </span>
         </button>
 
-        {/* Resolved */}
+        {/* Community */}
         <button
-          id="nav-tab-resolved"
+          id="nav-tab-community"
           type="button"
-          onClick={() => onTabChange('resolved')}
+          onClick={() => onTabChange('community')}
           className="relative flex flex-col items-center justify-center w-16 h-full transition-all duration-200"
         >
-          {activeTab === 'resolved' && (
+          {activeTab === 'community' && (
             <div className="absolute top-0 w-8 h-[3px] bg-blue-600 rounded-b-full shadow-[0_1px_3px_rgba(37,99,235,0.4)]" />
           )}
-          <CheckCircle className={`w-[22px] h-[22px] mb-1 transition-all duration-200 ${activeTab === 'resolved' ? 'text-blue-600 stroke-[2.5] scale-110' : 'text-gray-400 stroke-[2]'}`} />
-          <span className={`text-[10px] transition-colors ${activeTab === 'resolved' ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'}`}>
-            Resolved
+          <Users className={`w-[22px] h-[22px] mb-1 transition-all duration-200 ${activeTab === 'community' ? 'text-blue-600 stroke-[2.5] scale-110' : 'text-gray-400 stroke-[2]'}`} />
+          <span className={`text-[10px] transition-colors ${activeTab === 'community' ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'}`}>
+            Community
           </span>
         </button>
 
