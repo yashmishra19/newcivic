@@ -42,7 +42,7 @@ export interface CivicIssue {
     neighborhood: string;
     lat: number;
     lng: number;
-    jurisdiction?: 'Public' | 'Private';
+    jurisdiction?: 'Municipal' | 'Private' | 'Railway' | 'Unknown';
   };
   reportedAt: string;
   reportedBy: {
@@ -59,6 +59,8 @@ export interface CivicIssue {
   timeline: TimelineEvent[];
   comments: Comment[];
   aiAnalysis?: {
+    issueDetected?: boolean;
+    municipalIssueLikely?: boolean;
     detectedHazard: string;
     confidence: number;
     recommendedPriority: string;

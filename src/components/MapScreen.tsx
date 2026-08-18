@@ -32,6 +32,10 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
+  // Default to Kandivali, Mumbai (fallback when GPS is unavailable)
+  const KANDIVALI_CENTER: [number, number] = [19.2041, 72.8517];
+  const userCoordsRef = useRef<[number, number]>(KANDIVALI_CENTER);
+
   const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
 
   // Helper to create custom HTML markers matching the screenshot
@@ -113,13 +117,14 @@ export const MapScreen: React.FC<MapScreenProps> = ({
     });
   };
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map and try to get real user location
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
+      // Start with Kandivali, Mumbai as default center
       const map = L.map(mapContainerRef.current, {
-        center: [37.7845, -122.4045],
+        center: KANDIVALI_CENTER,
         zoom: 15,
         zoomControl: false,
       });
@@ -140,6 +145,24 @@ export const MapScreen: React.FC<MapScreenProps> = ({
           onQuickReportAtLocation(e.latlng.lat, e.latlng.lng);
         }
       });
+
+      // Try to get real user GPS location and pan to it
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            userCoordsRef.current = [latitude, longitude];
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.setView([latitude, longitude], 15, { animate: true });
+            }
+          },
+          () => {
+            // Permission denied or error — keep Kandivali default, no action needed
+            console.info('[MapScreen] Geolocation unavailable. Using Kandivali, Mumbai as default.');
+          },
+          { timeout: 8000, enableHighAccuracy: true }
+        );
+      }
     }
 
     return () => {
@@ -211,9 +234,9 @@ export const MapScreen: React.FC<MapScreenProps> = ({
       markersRef.current[issue.id] = marker;
     });
 
-    // Add User Current Location Pin (matching blue pin in screenshot)
+    // Add User Current Location Pin using live GPS coords (defaults to Kandivali)
     const userLocationPin = createCustomPin('user', false);
-    const userMarker = L.marker([37.7810, -122.4085], {
+    const userMarker = L.marker(userCoordsRef.current, {
       icon: userLocationPin,
     }).addTo(map);
 
@@ -237,9 +260,22 @@ export const MapScreen: React.FC<MapScreenProps> = ({
 
   const handleRecenter = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([37.7845, -122.4045], 15, {
-        animate: true,
-      });
+      // Re-request GPS and pan to live location, fallback to stored coords
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            userCoordsRef.current = [latitude, longitude];
+            mapInstanceRef.current?.setView([latitude, longitude], 16, { animate: true });
+          },
+          () => {
+            mapInstanceRef.current?.setView(userCoordsRef.current, 15, { animate: true });
+          },
+          { timeout: 5000, enableHighAccuracy: true }
+        );
+      } else {
+        mapInstanceRef.current.setView(userCoordsRef.current, 15, { animate: true });
+      }
     }
   };
 
