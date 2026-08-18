@@ -93,13 +93,20 @@ const DEPARTMENT_MAP: Record<IssueCategory, string> = {
 const env = () => (import.meta as any).env ?? {};
 
 export function isGeminiConfigured(): boolean {
-  const k = env().VITE_GEMINI_API_KEY;
-  return !!(k && k !== 'your_key_here' && k.trim().length > 10);
+  const k = (env().VITE_GEMINI_API_KEY || '').trim();
+  // Real Gemini API keys start with "AIza". An OAuth token ("AQ.…" / "ya29.…")
+  // is long enough to look valid but is rejected with API_KEY_INVALID, which
+  // would silently burn the primary engine on every upload.
+  if (k && !k.startsWith('AIza')) {
+    console.warn('[AI Service] VITE_GEMINI_API_KEY is not an API key (expected "AIza…") — treating Gemini as unconfigured.');
+    return false;
+  }
+  return !!(k && k !== 'your_key_here' && k.length > 10);
 }
 
 export function isGrokConfigured(): boolean {
-  const k = env().VITE_GROK_API_KEY;
-  return !!(k && k !== 'your_grok_key_here' && k.trim().length > 10);
+  const k = (env().VITE_GROK_API_KEY || '').trim();
+  return !!(k && k !== 'your_grok_key_here' && k.length > 10);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -387,7 +394,9 @@ async function analyzeWithGemini(
   console.log('[AI Service] Gemini — rate limit OK, calling API…');
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  // gemini-2.0-flash and gemini-2.5-flash have been retired for this key.
+  // gemini-flash-latest always points at Google's current default flash model.
+  const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
   const result = await model.generateContent([
     {
@@ -409,7 +418,15 @@ async function analyzeWithGemini(
 // SERVICE 3b — GROK VISION (automatic fallback)
 // Uses xAI's OpenAI-compatible API endpoint.
 // Model: grok-2-vision-1212
+//
+// api.x.ai returns no Access-Control-Allow-Origin, so a direct browser fetch is
+// blocked by CORS. In dev we go through the Vite proxy declared in
+// vite.config.ts; a production build needs an equivalent server-side proxy.
 // ─────────────────────────────────────────────────────────────────────────────
+
+const GROK_ENDPOINT = env().DEV
+  ? '/xai/v1/chat/completions'
+  : 'https://api.x.ai/v1/chat/completions';
 
 async function analyzeWithGrok(
   base64Image: string,
@@ -446,7 +463,7 @@ async function analyzeWithGrok(
     max_tokens: 600,
   };
 
-  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+  const res = await fetch(GROK_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

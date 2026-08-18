@@ -17,6 +17,15 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        // xAI's API sends no CORS headers, so a browser fetch to api.x.ai is blocked.
+        // Route the Grok Vision fallback through the dev server instead.
+        '/xai': {
+          target: 'https://api.x.ai',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/xai/, ''),
+        },
+      },
     },
   };
 });
