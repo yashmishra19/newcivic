@@ -85,7 +85,7 @@ export function buildCivicIssueFromPipeline(
       neighborhood: location.neighborhood,
       lat: location.lat,
       lng: location.lng,
-      jurisdiction: aiAnalysis.location?.jurisdiction || 'Public',
+      jurisdiction: aiAnalysis.location?.jurisdiction || 'Unknown',
     },
     reportedAt: 'Just now',
     reportedBy: {
@@ -129,6 +129,8 @@ export function buildCivicIssueFromPipeline(
     ],
     comments: [],
     aiAnalysis: {
+      issueDetected: aiAnalysis.issueDetected,
+      municipalIssueLikely: aiAnalysis.municipalIssueLikely,
       detectedHazard: aiAnalysis.summary,
       confidence: aiAnalysis.confidence,
       recommendedPriority: aiAnalysis.recommendedPriority,

@@ -1,25 +1,64 @@
 // ============================================================================
-// AI SERVICE - GEMINI VISION + OPENSTREETMAP (OSM) GEOLOCATION & JURISDICTION
+// AI SERVICE — GEMINI (default) + GROK (fallback) + OSM GEOCODING + RATE LIMITER
+//
+// Call chain for image analysis:
+//   1. Device GPS  → raw lat/lng (no AI)
+//   2. OSM Nominatim → structured human-readable address
+//   3a. Gemini 1.5 Flash  → primary AI vision analysis (with location context)
+//   3b. Grok Vision       → automatic fallback if Gemini fails / quota exceeded
+//   4. Offline mock       → last-resort fallback if both AI services unavailable
 // ============================================================================
 
 import { IssueCategory, IssueSeverity } from '../types';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERFACES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Structured location built from GPS + OSM reverse geocoding.
+ * The UI should use `displayName` — never raw coordinates.
+ */
 export interface LocationGeoData {
   latitude: number;
   longitude: number;
+
+  /** e.g. "Western Railway Colony, Kandivali West, Mumbai" */
+  displayName: string;
+
+  /** Backward-compat alias for displayName */
   address: string;
+
+  landmark?: string;
   neighborhood?: string;
-  jurisdiction: 'Public' | 'Private';
+  suburb?: string;
+  city?: string;
+  state?: string;
+
+  /** 4-class jurisdiction instead of the old binary Public/Private */
+  jurisdiction: 'Municipal' | 'Private' | 'Railway' | 'Unknown';
+
   raw?: any;
 }
 
 export interface AiCivicAnalysisResult {
+  /** Was a civic issue actually detected in the image? */
+  issueDetected: boolean;
+
   verified: boolean;
   category: IssueCategory;
   categoryLabel: string;
   severity: IssueSeverity;
-  severityScore: number; // 1 to 5
+  severityScore: number; // 1–5
+
   summary: string;
+
+  /** Does the visible infrastructure look like a municipal/public asset? */
+  municipalIssueLikely: boolean;
+  municipalReason?: string;
+  infrastructureType?: string;
+
   department: string;
   confidence: number;
   recommendedPriority: string;
@@ -27,119 +66,91 @@ export interface AiCivicAnalysisResult {
   location: LocationGeoData;
   rawResponse?: any;
   suggestedTitle?: string;
+
+  /** Which AI engine produced this result */
+  engine?: 'gemini' | 'grok' | 'mock';
 }
 
-// Convert File / Blob to Base64 string for Gemini API
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPARTMENT MAP  (category → responsible civic body)
+// ─────────────────────────────────────────────────────────────────────────────
+const DEPARTMENT_MAP: Record<IssueCategory, string> = {
+  pothole:         'Road Maintenance (PWD / BMC Roads)',
+  street_light:    'Electrical Department (MSEDCL / BMC)',
+  water_leak:      'Water & Drainage (BMC Hydraulics)',
+  traffic_signal:  'Traffic Engineering Cell',
+  sidewalk:        'Road Maintenance (PWD / BMC Roads)',
+  illegal_dumping: 'Solid Waste Management (BMC SWM)',
+  fallen_tree:     'Tree Authority (BMC Garden Dept.)',
+  graffiti:        'Urban Affairs / Heritage Cell',
+  other:           'Municipal Corporation (BMC)',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API KEY HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const env = () => (import.meta as any).env ?? {};
+
+export function isGeminiConfigured(): boolean {
+  const k = env().VITE_GEMINI_API_KEY;
+  return !!(k && k !== 'your_key_here' && k.trim().length > 10);
+}
+
+export function isGrokConfigured(): boolean {
+  const k = env().VITE_GROK_API_KEY;
+  return !!(k && k !== 'your_grok_key_here' && k.trim().length > 10);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GEMINI FREE-TIER RATE LIMITER  (15 RPM sliding window)
+// ─────────────────────────────────────────────────────────────────────────────
+const GEMINI_MAX_RPM   = 15;
+const GEMINI_WINDOW_MS = 60_000;
+const _geminiTimestamps: number[] = [];
+
+async function waitForGeminiRateLimit(): Promise<void> {
+  const now = Date.now();
+  while (_geminiTimestamps.length > 0 && now - _geminiTimestamps[0] > GEMINI_WINDOW_MS) {
+    _geminiTimestamps.shift();
+  }
+  if (_geminiTimestamps.length >= GEMINI_MAX_RPM) {
+    const waitMs = GEMINI_WINDOW_MS - (now - _geminiTimestamps[0]) + 150;
+    console.warn(
+      `[Gemini Rate Limiter] ${GEMINI_MAX_RPM} RPM limit reached — waiting ${Math.ceil(waitMs / 1000)} s…`
+    );
+    await new Promise((r) => setTimeout(r, waitMs));
+    return waitForGeminiRateLimit();
+  }
+  _geminiTimestamps.push(Date.now());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Convert File/Blob → raw base64 string (no data-URI prefix). */
 export function fileToBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => {
-      const res = reader.result as string;
-      const base64Data = res.split(',')[1] || '';
-      resolve(base64Data);
-    };
-    reader.onerror = (error) => reject(error);
+    reader.onload  = () => resolve((reader.result as string).split(',')[1] ?? '');
+    reader.onerror = (e) => reject(e);
   });
 }
 
-// Check if Gemini API Key is configured in environment
-export function isGeminiConfigured(): boolean {
-  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  return !!(apiKey && apiKey !== 'your_key_here' && apiKey.trim().length > 10);
-}
-
-// 1. Get user's latitude & longitude using browser Geolocation API
-export function getUserLocation(): Promise<{ latitude: number; longitude: number }> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      console.warn('[AI Service] Geolocation not supported by device/browser. Using default coordinates.');
-      resolve({ latitude: 19.0234, longitude: 72.8567 }); // Fallback default (e.g. Mumbai Metro / Downtown)
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      },
-      (error) => {
-        console.warn('[AI Service] Geolocation permission or timeout error. Using localized fallback:', error.message);
-        resolve({ latitude: 19.0234, longitude: 72.8567 });
-      },
-      {
-        timeout: 6000,
-        enableHighAccuracy: true,
-        maximumAge: 10000,
-      }
-    );
-  });
-}
-
-// 2. Reverse geocode lat/long -> address using OpenStreetMap (Nominatim API)
-export async function getAddressFromCoords(
-  lat: number,
-  lng: number
-): Promise<{ address: string; raw: any }> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'CivicWatch-OpenStreetMap-App/1.0',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Nominatim reverse geocode error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return {
-      address: data.display_name || `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-      raw: data,
-    };
-  } catch (err) {
-    console.warn('[AI Service] Nominatim lookup fallback:', err);
-    return {
-      address: `Roadway Segment near ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-      raw: { type: 'road', class: 'highway' },
-    };
-  }
-}
-
-// 3. Detect jurisdiction (Public vs Private) based on OSM response
-export function detectJurisdiction(osmData: any): 'Public' | 'Private' {
-  if (!osmData) return 'Public';
-
-  const type = (osmData.type || '').toLowerCase();
-  const osmClass = (osmData.class || '').toLowerCase();
-  const addresstype = (osmData.addresstype || '').toLowerCase();
-
-  // If OSM type or class = "residential", "building", "premise", "apartments", etc. -> Private
-  const privateTags = ['building', 'residential', 'premise', 'apartments', 'house', 'commercial', 'industrial', 'private'];
-  if (privateTags.includes(type) || privateTags.includes(osmClass) || privateTags.includes(addresstype)) {
-    return 'Private';
-  }
-
-  // If OSM type = "highway", "road", "public", "street", "footway", etc. -> Public
-  return 'Public';
-}
-
-// Helper category & severity mappers
+/** Map free-text category → internal IssueCategory key. */
 export function mapToIssueCategory(catString: string): IssueCategory {
-  const s = (catString || '').toLowerCase().trim();
-  if (s.includes('pothole') || s.includes('road') || s.includes('asphalt') || s.includes('crater')) return 'pothole';
-  if (s.includes('light') || s.includes('lamp') || s.includes('dark')) return 'street_light';
-  if (s.includes('water') || s.includes('pipe') || s.includes('flood') || s.includes('waterlogging') || s.includes('drain')) return 'water_leak';
-  if (s.includes('signal') || s.includes('traffic')) return 'traffic_signal';
-  if (s.includes('sidewalk') || s.includes('pavement') || s.includes('curb') || s.includes('walkway')) return 'sidewalk';
-  if (s.includes('garbage') || s.includes('dump') || s.includes('trash') || s.includes('waste')) return 'illegal_dumping';
-  if (s.includes('tree') || s.includes('branch') || s.includes('wood')) return 'fallen_tree';
-  if (s.includes('graffiti') || s.includes('paint')) return 'graffiti';
-  return 'pothole';
+  const s = (catString || '').toLowerCase();
+  if (s.includes('pothole') || s.includes('road') || s.includes('asphalt'))                    return 'pothole';
+  if (s.includes('light') || s.includes('lamp'))                                                return 'street_light';
+  if (s.includes('water') || s.includes('pipe') || s.includes('flood') || s.includes('drain') || s.includes('waterlog')) return 'water_leak';
+  if (s.includes('signal') || s.includes('traffic'))                                            return 'traffic_signal';
+  if (s.includes('sidewalk') || s.includes('footpath') || s.includes('pavement') || s.includes('curb')) return 'sidewalk';
+  if (s.includes('garbage') || s.includes('dump') || s.includes('trash') || s.includes('waste') || s.includes('sanitation')) return 'illegal_dumping';
+  if (s.includes('tree') || s.includes('branch'))                                               return 'fallen_tree';
+  if (s.includes('graffiti') || s.includes('paint') || s.includes('vandal'))                   return 'graffiti';
+  return 'other';
 }
 
 export function mapToIssueSeverity(score: number): IssueSeverity {
@@ -148,173 +159,401 @@ export function mapToIssueSeverity(score: number): IssueSeverity {
   return 'low';
 }
 
-// Fallback Mock AI Generator when in offline/demo mode or API quota exhausted
-export function getMockAiAnalysis(
-  fileOrName: File | string,
-  locationData: LocationGeoData
+/** Build a consistent AiCivicAnalysisResult from a parsed Gemini/Grok JSON object. */
+function buildResultFromParsed(
+  parsed: any,
+  locationGeo: LocationGeoData,
+  engine: 'gemini' | 'grok'
 ): AiCivicAnalysisResult {
-  const nameLower = (typeof fileOrName === 'string' ? fileOrName : fileOrName.name || '').toLowerCase();
+  const issueDetected: boolean = parsed.issueDetected !== false;
+  const categoryKey = mapToIssueCategory(parsed.category || '');
+
+  let severityKey: IssueSeverity = 'low';
+  const rawSev = (parsed.severity || '').toLowerCase();
+  if (rawSev.includes('critical')) severityKey = 'critical';
+  else if (rawSev.includes('high')) severityKey = 'high';
+  else if (rawSev.includes('medium')) severityKey = 'moderate';
+
+  const severityScore = severityKey === 'critical' ? 5 : severityKey === 'high' ? 4 : severityKey === 'moderate' ? 3 : 1;
+  const confidence = Number(parsed.confidence) || 88;
+  const isVerified  = issueDetected && confidence >= 50;
+
+  return {
+    issueDetected,
+    verified: isVerified,
+    category: categoryKey,
+    categoryLabel: parsed.category || categoryKey.replace(/_/g, ' '),
+    severity: severityKey,
+    severityScore,
+    summary: parsed.description || 'Civic hazard detected from image analysis.',
+    municipalIssueLikely: parsed.municipalIssueLikely === true,
+    municipalReason: parsed.municipalReason || undefined,
+    infrastructureType: parsed.infrastructureType || undefined,
+    department: DEPARTMENT_MAP[categoryKey],
+    confidence,
+    recommendedPriority: severityScore >= 4 ? 'Tier 1 Critical Dispatch' : 'Standard Queue',
+    estimatedRepairCost: severityScore >= 4 ? '₹8,000 – ₹18,000' : '₹3,000 – ₹8,000',
+    location: locationGeo,
+    rawResponse: parsed,
+    suggestedTitle:
+      parsed.issueTitle ||
+      `${parsed.category || 'Issue'} at ${locationGeo.neighborhood || locationGeo.suburb || locationGeo.city || 'Mumbai'}`,
+    engine,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE 1 — DEVICE GPS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const KANDIVALI_DEFAULT = { latitude: 19.2041, longitude: 72.8517 };
+
+export function getUserLocation(): Promise<{ latitude: number; longitude: number }> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      console.warn('[AI Service] Geolocation not supported. Using Kandivali default.');
+      return resolve(KANDIVALI_DEFAULT);
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      (err) => {
+        console.warn('[AI Service] GPS error — Kandivali fallback:', err.message);
+        resolve(KANDIVALI_DEFAULT);
+      },
+      { timeout: 8000, enableHighAccuracy: true, maximumAge: 15000 }
+    );
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE 2 — REVERSE GEOCODING (OSM Nominatim)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StructuredAddress {
+  displayName: string;
+  landmark?: string;
+  neighborhood?: string;
+  suburb?: string;
+  city?: string;
+  state?: string;
+  jurisdiction: 'Municipal' | 'Private' | 'Railway' | 'Unknown';
+  raw: any;
+}
+
+function classifyJurisdiction(addr: any, osmClass: string, osmType: string): 'Municipal' | 'Private' | 'Railway' | 'Unknown' {
+  const tags = [osmClass, osmType, addr?.amenity || '', addr?.landuse || ''].map(t => (t || '').toLowerCase());
+
+  if (tags.some(t => ['railway', 'rail', 'metro', 'station'].some(r => t.includes(r)))) return 'Railway';
+
+  const privateTags = ['building', 'commercial', 'industrial', 'house', 'apartments', 'residential', 'private', 'retail', 'office', 'mall'];
+  if (tags.some(t => privateTags.some(p => t.includes(p)))) return 'Private';
+
+  const municipalTags = ['highway', 'road', 'street', 'footway', 'path', 'trunk', 'primary', 'secondary', 'tertiary', 'service', 'park', 'garden', 'drain', 'waterway'];
+  if (tags.some(t => municipalTags.some(m => t.includes(m)))) return 'Municipal';
+
+  return 'Unknown';
+}
+
+export async function getAddressFromCoords(lat: number, lng: number): Promise<StructuredAddress> {
+  const fallback = (): StructuredAddress => ({
+    displayName:  `Near Kandivali, Mumbai (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+    neighborhood: 'Kandivali',
+    suburb:       'Kandivali West',
+    city:         'Mumbai',
+    state:        'Maharashtra',
+    jurisdiction: 'Unknown',
+    raw: {},
+  });
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=18`;
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'CivicWatch-App/2.0',
+      },
+    });
+
+    if (!res.ok) throw new Error(`Nominatim HTTP ${res.status}`);
+    const data = await res.json();
+    const addr = data.address || {};
+
+    const colonyOrName = addr.neighbourhood || addr.quarter || addr.suburb || addr.city_district || '';
+    const areaName     = addr.suburb || addr.city_district || addr.district || '';
+    const cityName     = addr.city || addr.town || addr.county || 'Mumbai';
+    const road         = addr.road || addr.pedestrian || addr.footway || addr.street || '';
+
+    const parts: string[] = [];
+    if (road)                                    parts.push(road);
+    if (colonyOrName && colonyOrName !== road)   parts.push(colonyOrName);
+    if (areaName && areaName !== colonyOrName)   parts.push(areaName);
+    if (cityName)                                parts.push(cityName);
+
+    const displayName = parts.length > 0
+      ? parts.join(', ')
+      : (data.display_name?.split(',').slice(0, 4).join(',') || fallback().displayName);
+
+    return {
+      displayName,
+      landmark:     addr.amenity || addr.tourism || addr.historic || undefined,
+      neighborhood: colonyOrName || undefined,
+      suburb:       addr.suburb || addr.city_district || undefined,
+      city:         cityName,
+      state:        addr.state || undefined,
+      jurisdiction: classifyJurisdiction(addr, data.class || '', data.type || ''),
+      raw:          data,
+    };
+  } catch (err) {
+    console.warn('[AI Service] OSM geocode failed, using fallback:', err);
+    return fallback();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OFFLINE MOCK FALLBACK
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function getMockAiAnalysis(fileOrName: File | string, locationData: LocationGeoData): AiCivicAnalysisResult {
+  const name = (typeof fileOrName === 'string' ? fileOrName : fileOrName.name || '').toLowerCase();
 
   let category: IssueCategory = 'pothole';
-  let categoryLabel = 'Road Pothole';
+  let categoryLabel = 'Pothole / Road';
   let severityScore = 4;
   let severity: IssueSeverity = 'critical';
-  let department = 'PWD / Road Maintenance';
-  let summary = 'Deep asphalt failure on active roadway creating vehicle safety and tire hazard.';
+  let summary = 'Deep asphalt failure on active roadway creating a vehicle safety hazard.';
 
-  if (nameLower.includes('garbage') || nameLower.includes('dump') || nameLower.includes('trash') || nameLower.includes('waste')) {
-    category = 'illegal_dumping';
-    categoryLabel = 'Garbage Dump';
-    severityScore = 3;
-    severity = 'moderate';
-    department = 'Solid Waste Management';
-    summary = 'Garbage pile obstructing pedestrian walkway and creating sanitation hazard.';
-  } else if (nameLower.includes('water') || nameLower.includes('leak') || nameLower.includes('flood') || nameLower.includes('waterlogging')) {
-    category = 'water_leak';
-    categoryLabel = 'Waterlogging / Leak';
-    severityScore = 5;
-    severity = 'critical';
-    department = 'Drainage & Public Water Commission';
-    summary = 'High pressure water pooling along sidewalk causing foundation erosion.';
-  } else if (nameLower.includes('light') || nameLower.includes('lamp') || nameLower.includes('dark')) {
-    category = 'street_light';
-    categoryLabel = 'Broken Streetlight';
-    severityScore = 2;
-    severity = 'moderate';
-    department = 'Electrical Department';
-    summary = 'Non-functional street luminaire obscuring crosswalk at night.';
-  } else if (nameLower.includes('tree') || nameLower.includes('branch')) {
-    category = 'fallen_tree';
-    categoryLabel = 'Fallen Tree Branch';
-    severityScore = 4;
-    severity = 'critical';
-    department = 'Urban Forestry & Tree Care';
+  if (name.includes('garbage') || name.includes('dump') || name.includes('trash') || name.includes('waste')) {
+    category = 'illegal_dumping'; categoryLabel = 'Garbage / Sanitation'; severityScore = 3; severity = 'moderate';
+    summary = 'Garbage pile obstructing pedestrian walkway and creating a sanitation hazard.';
+  } else if (name.includes('water') || name.includes('leak') || name.includes('flood') || name.includes('waterlog')) {
+    category = 'water_leak'; categoryLabel = 'Waterlogging'; severityScore = 5; severity = 'critical';
+    summary = 'High-pressure water pooling along the road causing foundation erosion.';
+  } else if (name.includes('light') || name.includes('lamp')) {
+    category = 'street_light'; categoryLabel = 'Street Light'; severityScore = 2; severity = 'moderate';
+    summary = 'Non-functional street luminaire obscuring a pedestrian crosswalk at night.';
+  } else if (name.includes('tree') || name.includes('branch')) {
+    category = 'fallen_tree'; categoryLabel = 'Fallen Tree'; severityScore = 4; severity = 'critical';
     summary = 'Dislodged tree limb obstructing public roadway.';
   }
 
-  const result: AiCivicAnalysisResult = {
-    verified: true,
-    category,
-    categoryLabel,
-    severity,
-    severityScore,
-    summary,
-    department,
-    confidence: 96.8,
+  return {
+    issueDetected: true, verified: true,
+    category, categoryLabel, severity, severityScore, summary,
+    municipalIssueLikely: true,
+    municipalReason: 'Visible infrastructure appears to be part of a public road or municipal area.',
+    infrastructureType: 'public_road',
+    department: DEPARTMENT_MAP[category],
+    confidence: 88,
     recommendedPriority: severityScore >= 4 ? 'Tier 1 Rapid Dispatch' : 'Standard Maintenance Queue',
-    estimatedRepairCost: severityScore >= 4 ? '$450 - $950' : '$180 - $400',
+    estimatedRepairCost: severityScore >= 4 ? '₹8,000 – ₹18,000' : '₹3,000 – ₹8,000',
     location: locationData,
+    suggestedTitle: `${categoryLabel} at ${locationData.neighborhood || locationData.suburb || locationData.city || 'Mumbai'}`,
+    engine: 'mock',
   };
-
-  console.log('[AI Civic Analysis Result (Fallback Engine)]:', result);
-  return result;
 }
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED PROMPT FACTORY
+// Both Gemini and Grok receive the same structured prompt.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// 4. Main function: Integrate into analyzeCivicImage
-export async function analyzeCivicImage(imageFile: File | Blob): Promise<AiCivicAnalysisResult> {
-  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  const base64Image = await fileToBase64(imageFile);
+function buildCivicPrompt(locationContext: string): string {
+  return `You are an AI analyst for a civic hazard reporting app used in Indian cities (primarily Mumbai).
 
-  // Step 1: Get user location
-  console.log('[AI Service] Step 1: Getting user GPS coordinates...');
-  const location = await getUserLocation();
+The photograph was captured at this location (provided by device GPS + OpenStreetMap — do NOT override these coordinates):
+${locationContext}
 
-  // Step 2: Reverse geocode with OpenStreetMap (Nominatim API)
-  console.log('[AI Service] Step 2: Reverse geocoding lat/long with OpenStreetMap...', location);
-  const addressData = await getAddressFromCoords(location.latitude, location.longitude);
+Analyze the photograph carefully and respond ONLY with a valid JSON object — no markdown, no code fences, no extra text:
 
-  // Step 3: Detect jurisdiction (Public vs Private)
-  const jurisdiction = detectJurisdiction(addressData.raw);
-  console.log('[AI Service] Step 3: Detected Jurisdiction:', jurisdiction);
+{
+  "issueDetected": true or false,
+  "category": "one of exactly: Pothole / Road | Street Light | Garbage / Sanitation | Waterlogging | Broken Footpath | Encroachment | Fallen Tree | Graffiti | Other",
+  "severity": "one of exactly: Critical Hazard | High | Medium | Low",
+  "description": "2 sentences describing the visible problem and its safety or public-health impact",
+  "issueTitle": "short descriptive title e.g. 'Deep Pothole near Kandivali Station'",
+  "municipalIssueLikely": true or false,
+  "infrastructureType": "e.g. public_road | footpath | drain | streetlight | park | private_compound | unknown",
+  "municipalReason": "one sentence — why the visible infrastructure appears municipal or not. Base this only on visible evidence.",
+  "confidence": a number 0 to 100
+}
 
-  const locationGeo: LocationGeoData = {
-    latitude: location.latitude,
-    longitude: location.longitude,
-    address: addressData.address,
-    jurisdiction: jurisdiction,
-    raw: addressData.raw,
+Rules:
+- If no visible civic issue exists, set issueDetected to false and other fields to null.
+- Set municipalIssueLikely based only on visible infrastructure — not solely because the location is outdoors.
+- Do not assume BMC ownership from location alone; reason from visible evidence only.
+- Do not invent or override the GPS coordinates.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE 3a — GEMINI 1.5 FLASH (primary)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function analyzeWithGemini(
+  imageFile: File | Blob,
+  base64Image: string,
+  locationGeo: LocationGeoData,
+  locationContext: string
+): Promise<AiCivicAnalysisResult> {
+  const apiKey = env().VITE_GEMINI_API_KEY;
+
+  await waitForGeminiRateLimit();
+  console.log('[AI Service] Gemini — rate limit OK, calling API…');
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType: (imageFile.type === 'image/png' ? 'image/png' : 'image/jpeg') as any,
+        data: base64Image,
+      },
+    },
+    { text: buildCivicPrompt(locationContext) },
+  ]);
+
+  const raw = result.response.text().replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(raw);
+  console.log('[AI Service] Gemini response parsed OK.');
+  return buildResultFromParsed(parsed, locationGeo, 'gemini');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE 3b — GROK VISION (automatic fallback)
+// Uses xAI's OpenAI-compatible API endpoint.
+// Model: grok-2-vision-1212
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function analyzeWithGrok(
+  base64Image: string,
+  imageFile: File | Blob,
+  locationGeo: LocationGeoData,
+  locationContext: string
+): Promise<AiCivicAnalysisResult> {
+  const apiKey = env().VITE_GROK_API_KEY;
+  console.log('[AI Service] Grok fallback — calling xAI Vision API…');
+
+  const mimeType = imageFile.type === 'image/png' ? 'image/png' : 'image/jpeg';
+
+  const body = {
+    model: 'grok-2-vision-1212',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${base64Image}`,
+              detail: 'high',
+            },
+          },
+          {
+            type: 'text',
+            text: buildCivicPrompt(locationContext),
+          },
+        ],
+      },
+    ],
+    temperature: 0.2,
+    max_tokens: 600,
   };
 
-  if (!isGeminiConfigured()) {
-    console.info('[AI Service] Gemini Key missing. Running Fallback with OSM Geocoding & Jurisdiction.');
-    await new Promise((r) => setTimeout(r, 900));
-    const mockResult = getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
-    return { ...mockResult, verified: true };
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Grok API error ${res.status}: ${errText}`);
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const data = await res.json();
+  const raw = (data.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(raw);
+  console.log('[AI Service] Grok response parsed OK.');
+  return buildResultFromParsed(parsed, locationGeo, 'grok');
+}
 
-    const prompt = `You are a civic issue classifier for an Indian city reporting app. Analyze this image carefully and respond ONLY with a valid JSON object, no markdown, no explanation, just raw JSON:
-{
-  "issueTitle": "short title describing the issue and nearest landmark if visible",
-  "category": "one of exactly: Pothole / Road, Street Light, Garbage / Sanitation, Waterlogging, Broken Footpath, Encroachment, Other",
-  "severity": "one of exactly: Critical Hazard, High, Medium, Low",
-  "description": "2 sentences describing the problem and safety impact",
-  "confidence": a number from 0 to 100
-}`;
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN EXPORT — analyzeCivicImage
+// Gemini → Grok → Offline Mock (priority order)
+// ─────────────────────────────────────────────────────────────────────────────
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: imageFile.type === 'image/png' ? 'image/png' : 'image/jpeg',
-          data: base64Image
-        }
-      },
-      { text: prompt }
-    ]);
+export async function analyzeCivicImage(imageFile: File | Blob): Promise<AiCivicAnalysisResult> {
+  // ── Step 1: GPS ──────────────────────────────────────────────────────────
+  console.log('[AI Service] Step 1 — Acquiring GPS…');
+  const gps = await getUserLocation();
 
-    let responseText = result.response.text();
-    
-    // Clean potential markdown wrap
-    responseText = responseText.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(responseText);
+  // ── Step 2: Structured reverse geocoding ────────────────────────────────
+  console.log('[AI Service] Step 2 — Reverse geocoding…', gps);
+  const geoData = await getAddressFromCoords(gps.latitude, gps.longitude);
+  console.log('[AI Service] Step 2 — Resolved:', geoData.displayName, '| Jurisdiction:', geoData.jurisdiction);
 
-    const isVerified = (parsed.confidence >= 50);
-    
-    // Use the exact string categories mapped to our internal type if needed, but we'll adapt our UI to match the exact string values from the prompt.
-    // For now we map them to our existing `IssueCategory` keys to satisfy TS, and let `categoryLabel` hold the exact string.
-    let categoryKey: IssueCategory = 'other';
-    const rawCat = (parsed.category || '').toLowerCase();
-    if (rawCat.includes('pothole') || rawCat.includes('road')) categoryKey = 'pothole';
-    else if (rawCat.includes('light')) categoryKey = 'street_light';
-    else if (rawCat.includes('garbage') || rawCat.includes('sanitation')) categoryKey = 'illegal_dumping';
-    else if (rawCat.includes('waterlogging')) categoryKey = 'water_leak';
-    else if (rawCat.includes('footpath')) categoryKey = 'sidewalk';
-    else if (rawCat.includes('encroachment')) categoryKey = 'other';
-    else if (rawCat.includes('tree')) categoryKey = 'fallen_tree';
+  const locationGeo: LocationGeoData = {
+    latitude:     gps.latitude,
+    longitude:    gps.longitude,
+    displayName:  geoData.displayName,
+    address:      geoData.displayName,
+    landmark:     geoData.landmark,
+    neighborhood: geoData.neighborhood,
+    suburb:       geoData.suburb,
+    city:         geoData.city,
+    state:        geoData.state,
+    jurisdiction: geoData.jurisdiction,
+    raw:          geoData.raw,
+  };
 
-    let severityKey: IssueSeverity = 'low';
-    const rawSev = (parsed.severity || '').toLowerCase();
-    if (rawSev.includes('critical')) severityKey = 'critical';
-    else if (rawSev.includes('high')) severityKey = 'high';
-    else if (rawSev.includes('medium')) severityKey = 'moderate';
+  // Location context injected into both AI prompts
+  const locationContext = [
+    geoData.neighborhood  && `Neighbourhood / Colony: ${geoData.neighborhood}`,
+    geoData.suburb        && `Area: ${geoData.suburb}`,
+    geoData.city          && `City: ${geoData.city}`,
+    geoData.state         && `State: ${geoData.state}`,
+    `Coordinates: ${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}`,
+    `Pre-classified jurisdiction: ${geoData.jurisdiction}`,
+  ].filter(Boolean).join('\n');
 
-    const severityScore = severityKey === 'critical' ? 5 : severityKey === 'high' ? 4 : severityKey === 'moderate' ? 3 : 1;
+  // ── Step 3: Convert image to base64 (shared by both AI calls) ───────────
+  const base64Image = await fileToBase64(imageFile);
 
-    const finalResult: AiCivicAnalysisResult = {
-      verified: isVerified,
-      category: categoryKey,
-      categoryLabel: parsed.category || categoryKey.replace('_', ' '), // Send exact string back for form mapping
-      severity: severityKey,
-      severityScore,
-      summary: parsed.description || 'Civic hazard detected from image analysis.',
-      department: 'PWD / Road Maintenance',
-      confidence: Number(parsed.confidence) || 95,
-      recommendedPriority: severityScore >= 4 ? 'Tier 1 Critical Dispatch' : 'Standard Queue',
-      estimatedRepairCost: '$400 - $800',
-      location: locationGeo,
-      rawResponse: parsed,
-      suggestedTitle: parsed.issueTitle,
-    };
-
-    console.log('[AI Civic Analysis Result (Live Gemini + OSM)]:', finalResult);
-    return finalResult;
-  } catch (error) {
-    console.error('[AI Service] Error calling Gemini API:', error);
-    throw error; // Rethrow so the UI can catch it
+  // ── Step 3a: TRY GEMINI (primary) ───────────────────────────────────────
+  if (isGeminiConfigured()) {
+    try {
+      console.log('[AI Service] Step 3a — Trying Gemini Vision (primary)…');
+      const result = await analyzeWithGemini(imageFile, base64Image, locationGeo, locationContext);
+      console.log('[AI Service] ✅ Gemini succeeded.');
+      return result;
+    } catch (geminiErr: any) {
+      console.warn('[AI Service] ⚠️ Gemini failed:', geminiErr?.message || geminiErr);
+      console.info('[AI Service] → Falling back to Grok Vision…');
+    }
+  } else {
+    console.info('[AI Service] Gemini not configured — skipping to Grok.');
   }
+
+  // ── Step 3b: TRY GROK (fallback) ────────────────────────────────────────
+  if (isGrokConfigured()) {
+    try {
+      console.log('[AI Service] Step 3b — Trying Grok Vision (fallback)…');
+      const result = await analyzeWithGrok(base64Image, imageFile, locationGeo, locationContext);
+      console.log('[AI Service] ✅ Grok succeeded.');
+      return result;
+    } catch (grokErr: any) {
+      console.warn('[AI Service] ⚠️ Grok also failed:', grokErr?.message || grokErr);
+      console.info('[AI Service] → Both AI services failed. Using offline mock analysis.');
+    }
+  } else {
+    console.info('[AI Service] Grok not configured — using offline mock.');
+  }
+
+  // ── Step 4: OFFLINE MOCK (last resort) ──────────────────────────────────
+  console.info('[AI Service] Running offline mock analysis with real GPS location.');
+  await new Promise((r) => setTimeout(r, 700)); // simulate processing time
+  return getMockAiAnalysis(imageFile instanceof File ? imageFile : 'pothole', locationGeo);
 }
