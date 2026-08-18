@@ -316,68 +316,28 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<St
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getMockAiAnalysis(fileOrName: File | string, locationData: LocationGeoData): AiCivicAnalysisResult {
-  const name = (typeof fileOrName === 'string' ? fileOrName : fileOrName.name || '').toLowerCase();
-
-  // Only match known civic issue keywords — otherwise report no issue detected
-  const knownCivicKeywords = [
-    'pothole', 'road', 'garbage', 'dump', 'trash', 'waste',
-    'water', 'leak', 'flood', 'waterlog', 'light', 'lamp',
-    'tree', 'branch', 'graffiti', 'sidewalk', 'footpath', 'drain',
-  ];
-  const isCivicIssue = knownCivicKeywords.some(kw => name.includes(kw));
-
-  if (!isCivicIssue) {
-    return {
-      issueDetected: false, verified: false,
-      category: 'other', categoryLabel: 'No Issue Detected',
-      severity: 'low', severityScore: 0,
-      summary: 'No recognizable civic infrastructure issue was found in this image. Please upload a photo of a road, drainage, lighting, or other municipal asset.',
-      municipalIssueLikely: false,
-      municipalReason: 'Image does not appear to show a civic infrastructure problem.',
-      department: DEPARTMENT_MAP['other'],
-      confidence: 0,
-      recommendedPriority: 'None',
-      location: locationData,
-      suggestedTitle: '',
-      engine: 'mock',
-    };
-  }
-
-  let category: IssueCategory = 'pothole';
-  let categoryLabel = 'Pothole / Road';
-  let severityScore = 4;
-  let severity: IssueSeverity = 'critical';
-  let summary = 'Deep asphalt failure on active roadway creating a vehicle safety hazard.';
-
-  if (name.includes('garbage') || name.includes('dump') || name.includes('trash') || name.includes('waste')) {
-    category = 'illegal_dumping'; categoryLabel = 'Garbage / Sanitation'; severityScore = 3; severity = 'moderate';
-    summary = 'Garbage pile obstructing pedestrian walkway and creating a sanitation hazard.';
-  } else if (name.includes('water') || name.includes('leak') || name.includes('flood') || name.includes('waterlog')) {
-    category = 'water_leak'; categoryLabel = 'Waterlogging'; severityScore = 5; severity = 'critical';
-    summary = 'High-pressure water pooling along the road causing foundation erosion.';
-  } else if (name.includes('light') || name.includes('lamp')) {
-    category = 'street_light'; categoryLabel = 'Street Light'; severityScore = 2; severity = 'moderate';
-    summary = 'Non-functional street luminaire obscuring a pedestrian crosswalk at night.';
-  } else if (name.includes('tree') || name.includes('branch')) {
-    category = 'fallen_tree'; categoryLabel = 'Fallen Tree'; severityScore = 4; severity = 'critical';
-    summary = 'Dislodged tree limb obstructing public roadway.';
-  }
-
+  // The mock has ZERO vision -- it cannot analyze image content at all.
+  // Return issueDetected:false + engine:'mock' so the UI shows
+  // "AI service unavailable" instead of a fabricated pothole detection.
   return {
-    issueDetected: true, verified: true,
-    category, categoryLabel, severity, severityScore, summary,
-    municipalIssueLikely: true,
-    municipalReason: 'Visible infrastructure appears to be part of a public road or municipal area.',
-    infrastructureType: 'public_road',
-    department: DEPARTMENT_MAP[category],
-    confidence: 88,
-    recommendedPriority: severityScore >= 4 ? 'Tier 1 Rapid Dispatch' : 'Standard Maintenance Queue',
-    estimatedRepairCost: severityScore >= 4 ? '₹8,000 – ₹18,000' : '₹3,000 – ₹8,000',
+    issueDetected: false,
+    verified: false,
+    category: 'other',
+    categoryLabel: 'Unknown',
+    severity: 'low',
+    severityScore: 0,
+    summary: 'AI vision service is currently unavailable. Please fill in the issue details manually.',
+    municipalIssueLikely: false,
+    municipalReason: 'Could not analyze -- AI service offline.',
+    department: DEPARTMENT_MAP['other'],
+    confidence: 0,
+    recommendedPriority: 'N/A',
     location: locationData,
-    suggestedTitle: `${categoryLabel} at ${locationData.neighborhood || locationData.suburb || locationData.city || 'Mumbai'}`,
+    suggestedTitle: '',
     engine: 'mock',
   };
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED PROMPT FACTORY

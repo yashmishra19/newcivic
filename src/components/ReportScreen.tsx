@@ -91,10 +91,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
     'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80'
   );
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<string>('Pothole / Road');
-  const [severity, setSeverity] = useState<string>('Critical Hazard');
-  const [address, setAddress] = useState('550 Mission St, Downtown District 4');
-  const [neighborhood, setNeighborhood] = useState('Downtown District 4');
+  const [category, setCategory] = useState<string>('Other');
+  const [severity, setSeverity] = useState<string>('Low');
+  const [address, setAddress] = useState('Acquiring location...');
+  const [neighborhood, setNeighborhood] = useState('');
   const [jurisdiction, setJurisdiction] = useState<'Public' | 'Private'>('Public');
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({
     lat: 37.7845,
@@ -111,7 +111,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
-  const [noIssueDetected, setNoIssueDetected] = useState(false);
+  const [noIssueDetected, setNoIssueDetected] = useState(false);   // real AI: image has no civic issue
+  const [aiUnavailable, setAiUnavailable] = useState(false);       // mock fallback: AI service offline
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
 
   const hasCloudinary = isCloudinaryConfigured();
@@ -128,6 +129,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
     // Reset all AI states for the new photo
     setNoIssueDetected(false);
+    setAiUnavailable(false);
     setPipelineError(null);
     setAiConfidence(null);
     setAiSummary(null);
@@ -146,6 +148,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
     setIsAiAnalyzing(true);
     setPipelineError(null);
     setNoIssueDetected(false);
+    setAiUnavailable(false);
 
     try {
       const result: FullPipelineResult = await executeAiTriagePipeline(
@@ -158,17 +161,25 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
       );
 
       if (result.aiAnalysis) {
-        // If AI explicitly says no civic issue was found, show warning and do NOT pre-fill
-        if (!result.aiAnalysis.issueDetected) {
-          setNoIssueDetected(true);
-          // Still fill location from GPS, but leave category/title/description blank
-          setAddress(result.location.address);
-          setNeighborhood(result.location.neighborhood);
-          setCoords({ lat: result.location.lat, lng: result.location.lng });
-          if (result.imageUrl) setImageUrl(result.imageUrl);
+        // Always fill GPS location regardless of AI outcome
+        setAddress(result.location.address);
+        setNeighborhood(result.location.neighborhood);
+        setCoords({ lat: result.location.lat, lng: result.location.lng });
+        if (result.imageUrl) setImageUrl(result.imageUrl);
+
+        // CASE 1: Mock fallback ran — AI service was offline, cannot analyse image
+        if (result.aiAnalysis.engine === 'mock') {
+          setAiUnavailable(true);
           return;
         }
 
+        // CASE 2: Real AI (Gemini/Grok) explicitly says no civic issue in this photo
+        if (!result.aiAnalysis.issueDetected) {
+          setNoIssueDetected(true);
+          return;
+        }
+
+        // CASE 3: Real AI detected and verified a civic issue — pre-fill the form
         if (!result.aiAnalysis.verified) {
           setPipelineError('AI could not verify the issue. Please fill the form manually.');
           return;
@@ -181,17 +192,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
           result.aiAnalysis.severity === 'moderate' ? 'Medium' : 'Low'
         );
         setDepartment(result.aiAnalysis.department);
-        setAddress(result.location.address);
-        setNeighborhood(result.location.neighborhood);
         setJurisdiction(result.aiAnalysis.location?.jurisdiction || 'Public');
-        setCoords({ lat: result.location.lat, lng: result.location.lng });
         setAiConfidence(result.aiAnalysis.confidence);
         setAiSummary(result.aiAnalysis.summary);
         setTitle(result.aiAnalysis.suggestedTitle || `${result.aiAnalysis.categoryLabel} on ${result.location.address.split(',')[0]}`);
         setDescription(result.aiAnalysis.summary);
-        if (result.imageUrl) {
-          setImageUrl(result.imageUrl);
-        }
       }
     } catch (err: any) {
       console.error('Error running AI pipeline:', err);
@@ -427,6 +432,13 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
               <div className="p-3 bg-[#e6eeff] border border-[#d5e3fc] rounded-xl text-xs text-[#00288e] font-semibold flex items-center gap-2 animate-pulse">
                 <Sparkles className="w-4 h-4 text-[#1e40af] animate-spin" />
                 <span>AI is analyzing your photo...</span>
+              </div>
+            ) : aiUnavailable ? (
+              <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-xl text-xs text-yellow-900 font-semibold flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                <span>
+                  <strong>AI service unavailable.</strong> Both Gemini and Grok are offline or quota-exceeded. Please fill in the issue category and details manually.
+                </span>
               </div>
             ) : noIssueDetected ? (
               <div className="p-3 bg-orange-50 border border-orange-300 rounded-xl text-xs text-orange-900 font-semibold flex items-start gap-2">
