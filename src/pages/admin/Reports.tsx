@@ -1,31 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileText, Download, Share2, Plus, Search, Cloud, HardDrive,
   File, FileSpreadsheet, Table2, X, ChevronRight,
 } from 'lucide-react';
-import { MOCK_REPORTS, REPORT_CATEGORIES } from '../../data/mockReports';
+import { getReports } from '../../services/reports';
 
 const FILE_ICONS: Record<string, { icon: any; color: string; bg: string }> = {
-  pdf: { icon: FileText, color: 'text-red-600', bg: 'bg-red-50' },
-  xlsx: { icon: FileSpreadsheet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  csv: { icon: Table2, color: 'text-blue-600', bg: 'bg-blue-50' },
-  docx: { icon: File, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  PDF:  { icon: FileText,        color: 'text-red-600',     bg: 'bg-red-50'     },
+  XLSX: { icon: FileSpreadsheet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  CSV:  { icon: Table2,          color: 'text-blue-600',    bg: 'bg-blue-50'    },
+  DOCX: { icon: File,            color: 'text-indigo-600',  bg: 'bg-indigo-50'  },
 };
 
-const REPORT_TYPES = [
-  { label: 'Incident Report', desc: 'Generate a comprehensive report of all incidents within a date range.' },
-  { label: 'Department Performance', desc: 'Evaluate department KPIs, response times, and SLA compliance.' },
-  { label: 'Citizen Activity', desc: 'Analyze citizen reporting patterns, engagement, and satisfaction.' },
-  { label: 'Monthly Audit', desc: 'Full operational audit including financials, incidents, and workforce.' },
-  { label: 'Custom Report', desc: 'Build a custom report with selected data sources and metrics.' },
+const REPORT_CATEGORIES = [
+  'All Reports', 'Incidents', 'Audit', 'Sanitation', 'Power', 'Citizens', 'Analytics',
 ];
 
+const REPORT_TYPES = [
+  { label: 'Incident Report',        desc: 'Generate a comprehensive report of all incidents within a date range.'    },
+  { label: 'Department Performance', desc: 'Evaluate department KPIs, response times, and SLA compliance.'            },
+  { label: 'Citizen Activity',       desc: 'Analyze citizen reporting patterns, engagement, and satisfaction.'         },
+  { label: 'Monthly Audit',          desc: 'Full operational audit including financials, incidents, and workforce.'    },
+  { label: 'Custom Report',          desc: 'Build a custom report with selected data sources and metrics.'             },
+];
+
+const formatSize = (bytes: number) => {
+  if (!bytes) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 export default function Reports() {
+  const [reports, setReports] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All Reports');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
 
-  const filteredReports = MOCK_REPORTS.filter((rpt) => {
+  useEffect(() => {
+    getReports()
+      .then(setReports)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredReports = reports.filter((rpt) => {
     if (activeCategory !== 'All Reports' && rpt.category !== activeCategory) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -34,11 +54,16 @@ export default function Reports() {
     return true;
   });
 
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 max-w-[1440px]">
       {/* Left Panel */}
       <div className="w-full lg:w-60 flex-shrink-0 space-y-5">
-        {/* Categories */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-3">
           <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider px-2 py-1 mb-2">
             Categories
@@ -49,9 +74,7 @@ export default function Reports() {
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`w-full text-left px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                  activeCategory === cat
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:bg-slate-50'
+                  activeCategory === cat ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {cat}
@@ -77,7 +100,6 @@ export default function Reports() {
 
       {/* Main Content */}
       <div className="flex-1 space-y-5">
-        {/* Top bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -97,7 +119,7 @@ export default function Reports() {
           </button>
         </div>
 
-        {/* Documents Table */}
+        {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
             <h3 className="font-semibold text-slate-900 text-[15px]">Recent Documents</h3>
@@ -117,7 +139,7 @@ export default function Reports() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredReports.map((rpt) => {
-                  const fileStyle = FILE_ICONS[rpt.fileType] || FILE_ICONS.pdf;
+                  const fileStyle = FILE_ICONS[rpt.file_type] || FILE_ICONS.PDF;
                   const FileIcon = fileStyle.icon;
                   return (
                     <tr key={rpt.id} className="hover:bg-slate-50/50 transition-colors">
@@ -136,15 +158,21 @@ export default function Reports() {
                           {rpt.category}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-[12px] text-slate-600">{rpt.size}</td>
-                      <td className="px-5 py-3.5 text-[12px] text-slate-600">{rpt.generatedDate}</td>
-                      <td className="px-5 py-3.5 text-[12px] text-slate-600">{rpt.createdBy}</td>
+                      <td className="px-5 py-3.5 text-[12px] text-slate-600">
+                        {formatSize(rpt.size)}
+                      </td>
+                      <td className="px-5 py-3.5 text-[12px] text-slate-600">
+                        {rpt.generated_date
+                          ? new Date(rpt.generated_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-[12px] text-slate-600">{rpt.created_by}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
-                          <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors" title="Download">
+                          <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
                             <Download className="w-4 h-4" />
                           </button>
-                          <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors" title="Share">
+                          <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
                             <Share2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -164,7 +192,7 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Report Generation Modal */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -175,7 +203,7 @@ export default function Reports() {
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors"
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -189,12 +217,12 @@ export default function Reports() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
+                      <p className="text-[14px] font-semibold text-slate-800 group-hover:text-blue-700">
                         {type.label}
                       </p>
                       <p className="text-[12px] text-slate-500 mt-0.5">{type.desc}</p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
                   </div>
                 </button>
               ))}
@@ -202,7 +230,7 @@ export default function Reports() {
             <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-[13px] font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                className="px-4 py-2 text-[13px] font-medium text-slate-600 hover:text-slate-800"
               >
                 Cancel
               </button>
