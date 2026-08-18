@@ -111,6 +111,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [noIssueDetected, setNoIssueDetected] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
 
   const hasCloudinary = isCloudinaryConfigured();
@@ -125,6 +126,14 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
     const localPreview = URL.createObjectURL(file);
     setImageUrl(localPreview);
 
+    // Reset all AI states for the new photo
+    setNoIssueDetected(false);
+    setPipelineError(null);
+    setAiConfidence(null);
+    setAiSummary(null);
+    setTitle('');
+    setDescription('');
+
     // Transition to Step 2: Create Post screen
     setStep('create-post');
 
@@ -136,6 +145,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
   const triggerAiPipeline = async (file: File | Blob) => {
     setIsAiAnalyzing(true);
     setPipelineError(null);
+    setNoIssueDetected(false);
 
     try {
       const result: FullPipelineResult = await executeAiTriagePipeline(
@@ -148,8 +158,19 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
       );
 
       if (result.aiAnalysis) {
-        if (result.aiAnalysis.verified === false) {
-          setPipelineError('AI analysis failed. Please fill the form manually.');
+        // If AI explicitly says no civic issue was found, show warning and do NOT pre-fill
+        if (!result.aiAnalysis.issueDetected) {
+          setNoIssueDetected(true);
+          // Still fill location from GPS, but leave category/title/description blank
+          setAddress(result.location.address);
+          setNeighborhood(result.location.neighborhood);
+          setCoords({ lat: result.location.lat, lng: result.location.lng });
+          if (result.imageUrl) setImageUrl(result.imageUrl);
+          return;
+        }
+
+        if (!result.aiAnalysis.verified) {
+          setPipelineError('AI could not verify the issue. Please fill the form manually.');
           return;
         }
 
@@ -407,10 +428,17 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                 <Sparkles className="w-4 h-4 text-[#1e40af] animate-spin" />
                 <span>AI is analyzing your photo...</span>
               </div>
+            ) : noIssueDetected ? (
+              <div className="p-3 bg-orange-50 border border-orange-300 rounded-xl text-xs text-orange-900 font-semibold flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                <span>
+                  <strong>No civic issue detected.</strong> This image does not appear to show a road, drainage, lighting, or other municipal hazard. Please upload a relevant photo or fill in the form manually.
+                </span>
+              </div>
             ) : pipelineError ? (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <span>AI analysis failed. Please fill the form manually.</span>
+                <span>{pipelineError}</span>
               </div>
             ) : aiConfidence !== null ? (
               <div className="flex flex-col gap-2">

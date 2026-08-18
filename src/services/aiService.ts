@@ -165,8 +165,9 @@ function buildResultFromParsed(
   locationGeo: LocationGeoData,
   engine: 'gemini' | 'grok'
 ): AiCivicAnalysisResult {
-  const issueDetected: boolean = parsed.issueDetected !== false;
-  const categoryKey = mapToIssueCategory(parsed.category || '');
+  // Strictly require the AI to explicitly return true — any other value means no issue
+  const issueDetected: boolean = parsed.issueDetected === true;
+  const categoryKey = issueDetected ? mapToIssueCategory(parsed.category || '') : 'other' as IssueCategory;
 
   let severityKey: IssueSeverity = 'low';
   const rawSev = (parsed.severity || '').toLowerCase();
@@ -175,7 +176,8 @@ function buildResultFromParsed(
   else if (rawSev.includes('medium')) severityKey = 'moderate';
 
   const severityScore = severityKey === 'critical' ? 5 : severityKey === 'high' ? 4 : severityKey === 'moderate' ? 3 : 1;
-  const confidence = Number(parsed.confidence) || 88;
+  // Do NOT default confidence to 88 — use 0 if no issue detected, or what AI actually returned
+  const confidence = issueDetected ? (Number(parsed.confidence) || 50) : 0;
   const isVerified  = issueDetected && confidence >= 50;
 
   return {
@@ -315,6 +317,31 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<St
 
 export function getMockAiAnalysis(fileOrName: File | string, locationData: LocationGeoData): AiCivicAnalysisResult {
   const name = (typeof fileOrName === 'string' ? fileOrName : fileOrName.name || '').toLowerCase();
+
+  // Only match known civic issue keywords — otherwise report no issue detected
+  const knownCivicKeywords = [
+    'pothole', 'road', 'garbage', 'dump', 'trash', 'waste',
+    'water', 'leak', 'flood', 'waterlog', 'light', 'lamp',
+    'tree', 'branch', 'graffiti', 'sidewalk', 'footpath', 'drain',
+  ];
+  const isCivicIssue = knownCivicKeywords.some(kw => name.includes(kw));
+
+  if (!isCivicIssue) {
+    return {
+      issueDetected: false, verified: false,
+      category: 'other', categoryLabel: 'No Issue Detected',
+      severity: 'low', severityScore: 0,
+      summary: 'No recognizable civic infrastructure issue was found in this image. Please upload a photo of a road, drainage, lighting, or other municipal asset.',
+      municipalIssueLikely: false,
+      municipalReason: 'Image does not appear to show a civic infrastructure problem.',
+      department: DEPARTMENT_MAP['other'],
+      confidence: 0,
+      recommendedPriority: 'None',
+      location: locationData,
+      suggestedTitle: '',
+      engine: 'mock',
+    };
+  }
 
   let category: IssueCategory = 'pothole';
   let categoryLabel = 'Pothole / Road';
