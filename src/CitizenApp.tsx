@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { INITIAL_ISSUES } from './data/mockIssues';
+import { getIssues } from './services/issues';
 import { CivicIssue, FilterOptions } from './types';
 import { MapScreen } from './components/MapScreen';
 import { BottomNav, TabType } from './components/BottomNav';
@@ -16,7 +16,8 @@ import { Smartphone, Monitor, ShieldCheck, Sparkles, MapPin, Cpu, LayoutDashboar
 
 export default function CitizenApp() {
   const navigate = useNavigate();
-  const [issues, setIssues] = useState<CivicIssue[]>(INITIAL_ISSUES);
+    const [issues, setIssues] = useState<CivicIssue[]>([]);
+  const [issuesLoading, setIssuesLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('map');
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>('issue-1');
   const [detailIssue, setDetailIssue] = useState<CivicIssue | null>(null);
@@ -24,7 +25,64 @@ export default function CitizenApp() {
   const [isAiDiagOpen, setIsAiDiagOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'mobile-frame' | 'responsive'>('mobile-frame');
-
+  useEffect(() => {
+    getIssues().then((data) => {
+      if (data) {
+        // Map Supabase flat fields to CivicIssue shape
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          severity: item.severity,
+          status: item.status,
+          description: item.description,
+          location: {
+            address: item.address,
+            neighborhood: item.neighborhood,
+            lat: item.latitude,
+            lng: item.longitude,
+          },
+          reportedAt: item.reported_at
+            ? new Date(item.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+            : 'Recently',
+          reportedBy: { name: 'Citizen', avatar: '', badge: '' },
+          imageUrl: item.image_url || '',
+          resolvedImageUrl: item.resolved_image_url || '',
+          upvotes: item.upvotes || 0,
+          hasUpvoted: false,
+          assignedDepartment: item.assigned_department_id || '',
+          estimatedFixTime: item.estimated_fix_time || '',
+          aiAnalysis: item.issue_ai_analysis?.[0] ? {
+            detectedHazard: item.issue_ai_analysis[0].detected_hazard,
+            confidence: item.issue_ai_analysis[0].confidence,
+            recommendedPriority: item.issue_ai_analysis[0].recommended_priority,
+            estimatedRepairCost: item.issue_ai_analysis[0].estimated_repair_cost,
+          } : undefined,
+          timeline: (item.issue_timeline || []).map((t: any) => ({
+            id: t.id,
+            status: t.status,
+            title: t.title,
+            description: t.description,
+            timestamp: t.timestamp
+              ? new Date(t.timestamp).toLocaleDateString('en-IN')
+              : '',
+            actor: t.actor,
+            actorRole: t.actor_role,
+          })),
+          comments: (item.issue_comments || []).map((c: any) => ({
+            id: c.id,
+            author: c.author,
+            avatar: c.avatar || '',
+            content: c.content,
+            timestamp: new Date(c.created_at).toLocaleDateString('en-IN'),
+            isOfficial: c.is_official,
+          })),
+        }));
+        setIssues(mapped);
+      }
+    }).catch(console.error)
+      .finally(() => setIssuesLoading(false));
+  }, []);
   const [filters, setFilters] = useState<FilterOptions>({
     searchQuery: '',
     category: 'all',
