@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 interface MapScreenProps {
   issues: CivicIssue[];
   selectedIssueId: string | null;
-  onSelectIssue: (id: string) => void;
+  onSelectIssue: (id: string | null) => void;
   onViewDetails: (issue: CivicIssue) => void;
   onOpenFilter: () => void;
   onQuickReportAtLocation?: (lat: number, lng: number) => void;
@@ -36,7 +36,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   const KANDIVALI_CENTER: [number, number] = [19.2041, 72.8517];
   const userCoordsRef = useRef<[number, number]>(KANDIVALI_CENTER);
 
-  const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
+  const selectedIssue = selectedIssueId ? issues.find((i) => i.id === selectedIssueId) : null;
 
   // Helper to create custom HTML markers matching the screenshot
   const createCustomPin = (type: 'critical' | 'resolved' | 'in_progress' | 'user', isSelected: boolean) => {
@@ -141,6 +141,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
 
       // Handle map clicks for adding new hazard report
       map.on('click', (e) => {
+        onSelectIssue(null);
         if (onQuickReportAtLocation) {
           onQuickReportAtLocation(e.latlng.lat, e.latlng.lng);
         }
@@ -387,10 +388,10 @@ export const MapScreen: React.FC<MapScreenProps> = ({
           {selectedIssue && (
             <motion.div
               key={selectedIssue.id}
-              initial={{ opacity: 0, y: 15, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
               className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-[0_10px_35px_rgba(13,28,46,0.12)] border border-slate-200/90 flex items-center gap-3.5"
             >
               {/* Left Thumbnail Photo */}

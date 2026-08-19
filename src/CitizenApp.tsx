@@ -19,7 +19,7 @@ export default function CitizenApp() {
     const [issues, setIssues] = useState<CivicIssue[]>([]);
   const [issuesLoading, setIssuesLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('map');
-  const [selectedIssueId, setSelectedIssueId] = useState<string | null>('issue-1');
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [detailIssue, setDetailIssue] = useState<CivicIssue | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
   const [isAiDiagOpen, setIsAiDiagOpen] = useState<boolean>(false);
