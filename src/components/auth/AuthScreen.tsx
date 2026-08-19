@@ -221,7 +221,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         return;
       }
 
-      // Add user to database
+      // Add user to localStorage
       const newUser = {
         id: Date.now(),
         name: signupName,
@@ -237,6 +237,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
       const updatedUsers = [...users, newUser];
       localStorage.setItem('civicwatch_users', JSON.stringify(updatedUsers));
+
+      // Also save to Supabase citizens table
+      try {
+           const { supabase } = await import('../../lib/supabase');
+        await supabase.from('citizens').insert({
+          name: signupName,
+          email: signupEmail,
+          phone: signupPhone,
+          neighborhood: signupDistrict,
+          status: 'pending',
+          joined_date: new Date().toISOString().split('T')[0],
+          last_activity: new Date().toISOString(),
+        });
+      } catch (supaErr) {
+        console.warn('Supabase citizen insert failed:', supaErr);
+        // Don't block signup if Supabase fails
+      }
 
       // Auto login
       const authData = {
