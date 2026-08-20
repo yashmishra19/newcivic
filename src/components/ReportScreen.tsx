@@ -18,6 +18,7 @@ import {
   Search,
   Image as ImageIcon,
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { CivicIssue, IssueCategory, IssueSeverity } from '../types';
 import {
   executeAiTriagePipeline,
@@ -241,42 +242,84 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
     }, 1200);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const pipelineData: FullPipelineResult = {
-      imageUrl,
-      location: {
-        address,
-        neighborhood,
-        lat: coords.lat,
-        lng: coords.lng,
-        source: 'gps',
-      },
-      aiAnalysis: {
-        verified: true,
-        category: category as IssueCategory,
-        categoryLabel: category,
-        severity: severity as IssueSeverity,
-        severityScore: severity === 'Critical Hazard' ? 5 : severity === 'High' ? 4 : severity === 'Medium' ? 3 : 1,
-        confidence: aiConfidence || 95.0,
-        department,
-        recommendedPriority: severity === 'critical' ? 'Emergency Tier 1' : 'Standard Queue',
-        estimatedRepairCost: '$450 - $1,200',
-        summary: aiSummary || 'Hazard visually confirmed by municipal AI vision agent.',
-        location: {
-          latitude: coords.lat,
-          longitude: coords.lng,
-          address,
-          neighborhood,
-          jurisdiction,
-        },
-      },
-    };
+    setSubmitError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-    const newIssue = buildCivicIssueFromPipeline(title, description, pipelineData);
-    onAddIssue(newIssue);
+      const { data, error } = await supabase
+        .from('issues')
+        .insert([{
+          title,
+          description,
+          category,
+          status: 'reported',
+          address,
+          area: neighborhood,
+          lat: coords.lat,
+          lng: coords.lng,
+          reported_by: user?.id || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }])
+        .select();
+
+      if (error) {
+        console.error('Insert error:', error);
+        setSubmitError(error.message || 'Failed to submit report.');
+        return;
+      }
+
+      // Map the returned real row data to the CivicIssue type expected by onAddIssue
+      if (data && data[0]) {
+        const pipelineData: FullPipelineResult = {
+          imageUrl,
+          location: {
+            address,
+            neighborhood,
+            lat: coords.lat,
+            lng: coords.lng,
+            source: 'gps',
+          },
+          aiAnalysis: {
+            verified: true,
+            category: category as IssueCategory,
+            categoryLabel: category,
+            severity: severity as IssueSeverity,
+            severityScore: severity === 'Critical Hazard' ? 5 : severity === 'High' ? 4 : severity === 'Medium' ? 3 : 1,
+            confidence: aiConfidence || 95.0,
+            department,
+            recommendedPriority: severity === 'critical' ? 'Emergency Tier 1' : 'Standard Queue',
+            estimatedRepairCost: '$450 - $1,200',
+            summary: aiSummary || 'Hazard visually confirmed by municipal AI vision agent.',
+            location: {
+              latitude: coords.lat,
+              longitude: coords.lng,
+              address,
+              neighborhood,
+              jurisdiction,
+            },
+          },
+        };
+
+        const newIssue = buildCivicIssueFromPipeline(title, description, pipelineData);
+        // Use the real ID and timestamps from Supabase
+        newIssue.id = data[0].id;
+        if (data[0].created_at) {
+          newIssue.reportedAt = new Date(data[0].created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        }
+        
+        onAddIssue(newIssue);
+      }
+    } catch (err: any) {
+      console.error('Failed to save to Supabase:', err);
+      setSubmitError(err.message || 'An unexpected error occurred.');
+    }
   };
 
   return (
@@ -567,6 +610,12 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-medium text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
                 />
               </div>
+
+              {submitError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold mb-3">
+                  {submitError}
+                </div>
+              )}
 
               {/* Submit Report Button */}
               <button

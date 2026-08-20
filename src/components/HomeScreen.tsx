@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Bell,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { CivicIssue } from '../types';
 import { SubmittedReportsCard } from './SubmittedReportsCard';
+import { supabase } from '../lib/supabase';
 
 interface HomeScreenProps {
   issues: CivicIssue[];
@@ -24,7 +25,7 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
-  issues,
+  issues: initialIssues,
   onSelectIssue,
   onViewDetails,
   onNavigateToMap,
@@ -32,6 +33,89 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToProfile,
   onUpvote,
 }) => {
+  const [issues, setIssues] = useState<CivicIssue[]>(initialIssues);
+
+  useEffect(() => {
+    const fetchIssues = async () => {
+      const { data, error } = await supabase
+        .from('issues')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (data) {
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category || 'other',
+          severity: item.severity || 'low',
+          status: item.status || 'reported',
+          description: item.description,
+          location: {
+            address: item.address || '',
+            neighborhood: item.area || item.neighborhood || '',
+            lat: item.lat || item.latitude || 0,
+            lng: item.lng || item.longitude || 0,
+          },
+          reportedAt: item.created_at
+            ? new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+            : 'Recently',
+          reportedBy: { name: 'Citizen', avatar: '', badge: '' },
+          imageUrl: item.image_url || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
+          resolvedImageUrl: item.resolved_image_url || '',
+          upvotes: item.upvotes || 0,
+          hasUpvoted: false,
+          assignedDepartment: item.assigned_department_id || '',
+          estimatedFixTime: item.estimated_fix_time || '',
+          timeline: [],
+          comments: [],
+        }));
+        setIssues(mapped);
+      }
+    };
+    fetchIssues();
+
+    const channel = supabase
+      .channel('issues-home-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'issues' },
+        (payload) => {
+          const item = payload.new;
+          const mappedIssue: CivicIssue = {
+            id: item.id,
+            title: item.title,
+            category: item.category || 'other',
+            severity: item.severity || 'low',
+            status: item.status || 'reported',
+            description: item.description,
+            location: {
+              address: item.address || '',
+              neighborhood: item.area || item.neighborhood || '',
+              lat: item.lat || item.latitude || 0,
+              lng: item.lng || item.longitude || 0,
+            },
+            reportedAt: item.created_at
+              ? new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              : 'Recently',
+            reportedBy: { name: 'Citizen', avatar: '', badge: '' },
+            imageUrl: item.image_url || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
+            resolvedImageUrl: item.resolved_image_url || '',
+            upvotes: item.upvotes || 0,
+            hasUpvoted: false,
+            assignedDepartment: item.assigned_department_id || '',
+            estimatedFixTime: item.estimated_fix_time || '',
+            timeline: [],
+            comments: [],
+          };
+          setIssues((prev) => [mappedIssue, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const criticalIssues = issues.filter((i) => i.severity === 'critical');
 
   const reporterFallback = (issue: CivicIssue) => {

@@ -14,3 +14,16 @@ export async function getIssues() {
   if (error) throw error;
   return data;
 }
+
+export async function insertIssue(issueData: any) {
+  const { data, error } = await supabase
+    .from('issues')
+    .insert([issueData])
+    .select();
+
+  if (error) {
+    console.error('Insert error:', error);
+    throw error;
+  }
+  return data;
+}

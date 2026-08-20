@@ -46,6 +46,36 @@ export const CommunityScreen: React.FC<CommunityScreenProps> = ({ onNavigateToRe
       .finally(() => setLoading(false));
   }, []);
 
+  const [feedIssues, setFeedIssues] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchIssues = async () => {
+      const { data, error } = await supabase
+        .from('issues')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (data) {
+        setFeedIssues(data);
+      }
+    };
+    fetchIssues();
+
+    const channel = supabase
+      .channel('issues-community-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'issues' },
+        (payload) => {
+          setFeedIssues((prev) => [payload.new, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const handleReportClick = () => {
     if (onNavigateToReport) onNavigateToReport();
   };
