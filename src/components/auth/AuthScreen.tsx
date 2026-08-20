@@ -59,6 +59,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const [darkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('civicwatch_citizen_darkmode');
+      if (saved !== null) return JSON.parse(saved);
+    } catch (e) {}
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
   // Login Form States
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -279,25 +287,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] bg-gradient-to-tr from-blue-50/40 via-white to-blue-50/20 flex items-center justify-center p-4 font-['Plus_Jakarta_Sans',sans-serif]">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-[0_10px_30px_rgba(0,0,0,0.04)] p-6 md:p-8 space-y-6">
+    <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-[#F8F9FA] bg-gradient-to-tr from-blue-50/40 via-white to-blue-50/20 text-slate-900'} flex items-center justify-center p-4 font-['Plus_Jakarta_Sans',sans-serif]`}>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.25)] p-6 md:p-8 space-y-6 transition-colors duration-200">
 
         {/* Header */}
         <div className="flex flex-col items-center text-center">
           <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-[0_4px_12px_rgba(37,99,235,0.3)]">
             C
           </div>
-          <span className="text-lg font-black text-slate-900 mt-2">CivicWatch</span>
-          <h2 className="text-xl font-extrabold text-slate-950 mt-4">
+          <span className="text-lg font-black text-slate-900 dark:text-slate-100 mt-2">CivicWatch</span>
+          <h2 className="text-xl font-extrabold text-slate-950 dark:text-white mt-4">
             {screen === 'login' ? 'Welcome Back' : 'Create Account'}
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
             {screen === 'login' ? 'Sign in to your account' : 'Register to report hazards & earn badges'}
           </p>
         </div>
 
         {errorMsg && (
-          <div className="p-3.5 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-2.5 text-xs text-red-600 font-semibold">
+          <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/45 rounded-2xl flex items-start gap-2.5 text-xs text-red-600 dark:text-red-400 font-semibold">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
@@ -307,28 +315,28 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         {screen === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Email Address</label>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Email Address</label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input type="email" required value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Password</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Password</label>
                 <a href="#" onClick={(e) => { e.preventDefault(); alert("Contact support@civicwatch.com"); }}
-                  className="text-[10px] font-bold text-blue-600 hover:underline">Forgot Password?</a>
+                  className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Forgot Password?</a>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input type={showLoginPassword ? 'text' : 'password'} required value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)} placeholder="••••••••"
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                 />
                 <button type="button" onClick={() => setShowLoginPassword(!showLoginPassword)}
                   className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
@@ -339,12 +347,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
             {loginEmail.toLowerCase().includes('admin') && (
               <div>
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-red-500 block mb-1">Admin Access Code</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-red-500 dark:text-red-400 block mb-1">Admin Access Code</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-red-400 absolute left-3 top-3.5" />
                   <input type="password" required value={adminAccessCode}
                     onChange={(e) => setAdminAccessCode(e.target.value)} placeholder="Enter access code"
-                    className="w-full bg-white border border-red-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all"
+                    className="w-full bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800/60 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-red-500 dark:focus:border-red-400 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-950/50 transition-all"
                   />
                 </div>
               </div>
@@ -356,41 +364,41 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             </button>
 
             <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-slate-200"></div>
-              <span className="mx-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Demo Credentials</span>
-              <div className="flex-grow border-t border-slate-200"></div>
+              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+              <span className="mx-4 text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Demo Credentials</span>
+              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <button type="button"
                 onClick={() => { setLoginEmail('alex@civicwatch.com'); setLoginPassword('User@1234'); setAdminAccessCode(''); setErrorMsg(null); }}
-                className="bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl p-3 text-left transition-all group">
+                className="bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-slate-200 dark:border-slate-700/60 hover:border-blue-300 dark:hover:border-blue-500/50 rounded-xl p-3 text-left transition-all group">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm">👤</span>
                   <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-blue-500" />
                 </div>
-                <p className="text-[10px] font-extrabold text-slate-800">Try as User</p>
-                <p className="text-[9px] text-slate-400 font-bold mt-1 truncate">alex@civicwatch.com</p>
-                <p className="text-[9px] text-slate-400 font-mono mt-0.5">User@1234</p>
+                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200">Try as User</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold mt-1 truncate">alex@civicwatch.com</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">User@1234</p>
               </button>
 
               <button type="button"
                 onClick={() => { setLoginEmail(ADMIN_EMAIL); setLoginPassword(ADMIN_PASSWORD); setAdminAccessCode(ADMIN_CODE); setErrorMsg(null); }}
-                className="bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-300 rounded-xl p-3 text-left transition-all group">
+                className="bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/30 border border-slate-200 dark:border-slate-700/60 hover:border-red-300 dark:hover:border-red-500/50 rounded-xl p-3 text-left transition-all group">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm">🔐</span>
                   <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-red-500" />
                 </div>
-                <p className="text-[10px] font-extrabold text-slate-800">Try as Admin</p>
-                <p className="text-[9px] text-slate-400 font-bold mt-1 truncate">admin@civicwatch.com</p>
-                <p className="text-[9px] text-slate-400 font-mono mt-0.5">Code: CWADMIN999</p>
+                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200">Try as Admin</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold mt-1 truncate">admin@civicwatch.com</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">Code: CWADMIN999</p>
               </button>
             </div>
 
-            <p className="text-center text-xs text-slate-500 font-medium">
+            <p className="text-center text-xs text-slate-500 dark:text-slate-450 font-medium">
               Don't have an account?{' '}
               <button type="button" onClick={() => handleSwitchScreen('signup')}
-                className="text-blue-600 font-bold hover:underline">Sign Up</button>
+                className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Sign Up</button>
             </p>
           </form>
         )}
@@ -399,46 +407,46 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         {screen === 'signup' && (
           <form onSubmit={handleSignupSubmit} className="space-y-4">
             <div>
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Full Name</label>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Full Name</label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input type="text" required value={signupName} onChange={(e) => setSignupName(e.target.value)}
                   placeholder="Rahul Sharma"
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Email Address</label>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Email Address</label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input type="email" required value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Phone Number (Optional)</label>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Phone Number (Optional)</label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input type="tel" value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)}
                   placeholder="+91 98XXX XXXXX"
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Password</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Password</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                   <input type={showSignupPassword ? 'text' : 'password'} required value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)} placeholder="Min 6 chars"
-                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                   />
                   <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)}
                     className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
@@ -448,12 +456,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
               </div>
 
               <div>
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Confirm Password</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Confirm Password</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                   <input type={showSignupConfirmPassword ? 'text' : 'password'} required value={signupConfirmPassword}
                     onChange={(e) => setSignupConfirmPassword(e.target.value)} placeholder="••••••••"
-                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all"
                   />
                   <button type="button" onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
                     className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
@@ -464,20 +472,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             </div>
 
             <div>
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Neighborhood</label>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Neighborhood</label>
               <div className="relative">
                 <MapPin className="w-4 h-4 text-blue-500 absolute left-3 top-3.5" />
                 <select value={signupDistrict} onChange={(e) => setSignupDistrict(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer">
-                  <option value="Kandivali West">Kandivali West</option>
-                  <option value="Kandivali East">Kandivali East</option>
-                  <option value="Thakur Village">Thakur Village</option>
-                  <option value="Charkop">Charkop</option>
-                  <option value="Poisar">Poisar</option>
-                  <option value="Samata Nagar">Samata Nagar</option>
-                  <option value="Akurli Road">Akurli Road</option>
-                  <option value="Mahavir Nagar">Mahavir Nagar</option>
-                  <option value="Lokhandwala Township">Lokhandwala Township</option>
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950/50 transition-all cursor-pointer">
+                  <option value="Kandivali West" className="dark:bg-slate-800">Kandivali West</option>
+                  <option value="Kandivali East" className="dark:bg-slate-800">Kandivali East</option>
+                  <option value="Thakur Village" className="dark:bg-slate-800">Thakur Village</option>
+                  <option value="Charkop" className="dark:bg-slate-800">Charkop</option>
+                  <option value="Poisar" className="dark:bg-slate-800">Poisar</option>
+                  <option value="Samata Nagar" className="dark:bg-slate-800">Samata Nagar</option>
+                  <option value="Akurli Road" className="dark:bg-slate-800">Akurli Road</option>
+                  <option value="Mahavir Nagar" className="dark:bg-slate-800">Mahavir Nagar</option>
+                  <option value="Lokhandwala Township" className="dark:bg-slate-800">Lokhandwala Township</option>
                 </select>
               </div>
             </div>
@@ -487,10 +495,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
               {isAuthenticating ? <><RefreshCw className="w-4 h-4 animate-spin" /><span>Creating Account...</span></> : <span>Create Account</span>}
             </button>
 
-            <p className="text-center text-xs text-slate-500 font-medium">
+            <p className="text-center text-xs text-slate-500 dark:text-slate-450 font-medium">
               Already have an account?{' '}
               <button type="button" onClick={() => handleSwitchScreen('login')}
-                className="text-blue-600 font-bold hover:underline">Sign In</button>
+                className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Sign In</button>
             </p>
           </form>
         )}

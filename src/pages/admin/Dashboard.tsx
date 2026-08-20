@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import {
   AlertTriangle, Clock, CheckCircle2, ShieldAlert, Eye,
   ArrowRight, MapPin, Wrench, Siren, Recycle, Zap, Shield,
@@ -42,6 +42,20 @@ const DEPT_ICONS: Record<string, any> = {
 
 export default function Dashboard() {
   const [priorityIncidents, setPriorityIncidents] = useState<any[]>([]);
+  const { darkMode } = (useOutletContext() as { darkMode?: boolean; searchQuery?: string }) || {};
+  const dm = Boolean(darkMode);
+
+  const cardBg = dm ? 'bg-slate-800 border-slate-700/60 hover:shadow-slate-900/60' : 'bg-white border-slate-200/80';
+  const cardTitle = dm ? 'text-slate-100' : 'text-slate-900';
+  const cardSub = dm ? 'text-slate-400' : 'text-slate-500';
+  const selectBg = dm ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-200 text-slate-700';
+  const panelBg = dm ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/80';
+  const dividerColor = dm ? 'divide-slate-700' : 'divide-slate-100';
+  const rowHover = dm ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50';
+  const innerBg = dm ? 'bg-slate-700/50' : 'bg-slate-50';
+  const innerBorder = dm ? 'border-slate-700' : 'border-slate-100';
+  const textMuted = dm ? 'text-slate-400' : 'text-slate-500';
+  const textBody = dm ? 'text-slate-300' : 'text-slate-800';
 
   useEffect(() => {
     getPriorityIncidents().then(setPriorityIncidents).catch(console.error);
@@ -53,8 +67,8 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div />
         <div className="flex items-center gap-2">
-          <span className="text-[13px] text-slate-500">Period:</span>
-          <select className="text-[13px] bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+          <span className={`text-[13px] ${textMuted}`}>Period:</span>
+          <select className={`text-[13px] border rounded-lg px-3 py-1.5 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${selectBg}`}>
             <option>Last 7 days</option>
             <option>Last 30 days</option>
             <option>This month</option>
@@ -66,7 +80,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {KPI_CARDS.map((kpi) => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-slate-200/80 p-5 hover:shadow-md transition-all duration-200 group">
+          <div key={kpi.label} className={`rounded-xl border p-5 hover:shadow-md transition-all duration-200 group ${cardBg}`}>
             <div className="flex items-start justify-between mb-3">
               <div className={`w-10 h-10 rounded-xl ${kpi.bg} flex items-center justify-center`}>
                 <kpi.icon className={`w-5 h-5 ${kpi.iconColor}`} />
@@ -81,8 +95,8 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <p className="text-2xl font-bold text-slate-900">{kpi.value}</p>
-            <p className="text-[12px] text-slate-500 mt-1 font-medium">{kpi.label}</p>
+            <p className={`text-2xl font-bold ${cardTitle}`}>{kpi.value}</p>
+            <p className={`text-[12px] mt-1 font-medium ${cardSub}`}>{kpi.label}</p>
             <div className="mt-3 h-8">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={INCIDENT_SPARKLINE_DATA}>
@@ -90,7 +104,7 @@ export default function Dashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">{kpi.sub}</p>
+            <p className={`text-[11px] mt-1 ${textMuted}`}>{kpi.sub}</p>
           </div>
         ))}
       </div>
@@ -98,30 +112,30 @@ export default function Dashboard() {
       {/* Main Content Grid: Priority Incidents & Dispatch Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Priority Incidents */}
-        <div className="bg-white rounded-xl border border-slate-200/80 flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className={`rounded-xl border flex flex-col ${panelBg}`}>
+          <div className={`px-5 py-4 border-b flex items-center justify-between ${innerBorder}`}>
             <div>
-              <h3 className="font-semibold text-slate-900 text-[15px]">Priority Incidents</h3>
-              <p className="text-[12px] text-slate-500 mt-0.5">Requires immediate attention</p>
+              <h3 className={`font-semibold text-[15px] ${cardTitle}`}>Priority Incidents</h3>
+              <p className={`text-[12px] mt-0.5 ${textMuted}`}>Requires immediate attention</p>
             </div>
             <Link to="/admin/incidents" className="text-[12px] font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
               View all <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <div className="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[380px]">
+          <div className={`flex-1 overflow-y-auto max-h-[380px] divide-y ${dividerColor}`}>
             {priorityIncidents.map((inc) => {
               const pBadge = PRIORITY_BADGE[inc.priority] || PRIORITY_BADGE.low;
               const sBadge = STATUS_BADGE[inc.status]   || STATUS_BADGE.reported;
               return (
                 <Link key={inc.id} to={`/admin/incidents/${inc.id}`}
-                  className="px-5 py-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors group"
+                  className={`px-5 py-3.5 flex items-start gap-3 transition-colors group ${rowHover}`}
                 >
                   <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${pBadge.dot}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                    <p className={`text-[13px] font-semibold truncate group-hover:text-blue-600 transition-colors ${textBody}`}>
                       {inc.title}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                    <p className={`text-[11px] mt-0.5 flex items-center gap-1 ${textMuted}`}>
                       <MapPin className="w-3 h-3" />
                       {inc.address}
                     </p>
@@ -134,7 +148,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 flex-shrink-0 mt-1">
+                  <span className={`text-[10px] flex-shrink-0 mt-1 ${textMuted}`}>
                     <Clock className="w-3 h-3 inline mr-0.5" />
                     {new Date(inc.reported_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -142,7 +156,7 @@ export default function Dashboard() {
               );
             })}
           </div>
-          <div className="px-5 py-3 border-t border-slate-100">
+          <div className={`px-5 py-3 border-t ${innerBorder}`}>
             <Link to="/admin/incidents" className="text-[12px] font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
               View all incidents <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -150,14 +164,14 @@ export default function Dashboard() {
         </div>
 
         {/* Dispatch Distribution */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 flex flex-col justify-between">
+        <div className={`rounded-xl border p-5 flex flex-col justify-between ${panelBg}`}>
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-slate-900 text-[15px]">Municipal Dispatch Distribution</h3>
-                <p className="text-[12px] text-slate-500 mt-0.5">Department-wise dispatch activity this month</p>
+                <h3 className={`font-semibold text-[15px] ${cardTitle}`}>Municipal Dispatch Distribution</h3>
+                <p className={`text-[12px] mt-0.5 ${textMuted}`}>Department-wise dispatch activity this month</p>
               </div>
-              <span className="text-[12px] text-slate-500 font-medium">Total: 408 dispatches</span>
+              <span className={`text-[12px] font-medium ${textMuted}`}>Total: 408 dispatches</span>
             </div>
             <div className="h-[190px] mb-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -177,19 +191,19 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 content-start pt-3 border-t border-slate-100">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 gap-3 content-start pt-3 border-t ${innerBorder}`}>
             {DISPATCH_DISTRIBUTION.map((dept) => {
               const Icon = DEPT_ICONS[dept.department] || Wrench;
               return (
-                <div key={dept.department} className="rounded-xl border border-slate-200/80 p-3 hover:shadow-sm transition-shadow">
+                <div key={dept.department} className={`rounded-xl border p-3 hover:shadow-sm transition-shadow ${dm ? 'border-slate-700 bg-slate-700/40' : 'border-slate-200/80'}`}>
                   <div className="flex items-center gap-2 mb-1.5">
                     <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: dept.color + '15' }}>
                       <Icon className="w-3 h-3" style={{ color: dept.color }} />
                     </div>
                   </div>
-                  <p className="text-base font-bold text-slate-900">{dept.percentage}%</p>
-                  <p className="text-[11px] text-slate-500 truncate">{dept.department}</p>
-                  <p className="text-[10px] text-slate-400">{dept.dispatches} dispatches</p>
+                  <p className={`text-base font-bold ${cardTitle}`}>{dept.percentage}%</p>
+                  <p className={`text-[11px] truncate ${textMuted}`}>{dept.department}</p>
+                  <p className={`text-[10px] ${textMuted}`}>{dept.dispatches} dispatches</p>
                 </div>
               );
             })}

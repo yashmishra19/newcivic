@@ -21,6 +21,8 @@ interface MapScreenProps {
   onQuickReportAtLocation?: (lat: number, lng: number) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  isAdmin?: boolean;
+  darkMode?: boolean;
 }
 
 type ColorMode = 'issues' | 'resolution' | 'speed';
@@ -79,6 +81,7 @@ function buildPinHtml(type: 'critical' | 'resolved' | 'in_progress', selected: b
 export const MapScreen: React.FC<MapScreenProps> = ({
   issues, selectedIssueId, onSelectIssue, onViewDetails,
   onOpenFilter, onQuickReportAtLocation, searchQuery, onSearchChange,
+  isAdmin = false, darkMode = false,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef          = useRef<L.Map | null>(null);
@@ -100,14 +103,17 @@ export const MapScreen: React.FC<MapScreenProps> = ({
 
   const MUMBAI_CENTER: L.LatLngExpression = [19.0760, 72.8777];
 
-  // Issues with ward IDs assigned
+  // Issues with ward IDs assigned (ward assignment only for admin)
   const issuesWithWards = useMemo(() => {
-    if (!wardsData) return [];
+    if (!isAdmin || !wardsData) {
+      // For citizens (or before wards load), just return issues as-is
+      return issues.map(iss => ({ ...iss, wardId: undefined }));
+    }
     return issues.map((iss, i) => ({
       ...iss,
       wardId: wardsData.features[i % wardsData.features.length].properties.wardId,
     }));
-  }, [issues, wardsData]);
+  }, [issues, wardsData, isAdmin]);
 
   const selectedIssue = selectedIssueId
     ? issuesWithWards.find(i => i.id === selectedIssueId) ?? null
@@ -194,10 +200,29 @@ export const MapScreen: React.FC<MapScreenProps> = ({
     setMapReady(true);
   }, [userWardId, userLocation]); // Re-bind click handler when userWardId changes
 
-  // ── Step 3: Render ward polygons once both map and data are ready ────────
+  useEffect(() => {
+    if (!tileRef.current) return;
+    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    const resolvedTheme = mapTheme === 'dark' || (mapTheme === 'streets' && darkMode) ? 'dark' : mapTheme;
+
+    if (resolvedTheme === 'satellite') {
+      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    } else if (resolvedTheme === 'dark') {
+      url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    }
+    tileRef.current.setUrl(url);
+  }, [mapTheme, darkMode]);
+
+  // ── Step 3: Render ward polygons (Admin only) ────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !wardsData || geoJsonRef.current) return;
+
+    // Citizens: skip ward overlay entirely — just mark as "ready" so markers still load
+    if (!isAdmin) {
+      geoJsonRef.current = L.geoJSON(); // empty placeholder so markers still render
+      return;
+    }
 
     // Build inverted grey mask
     try {
@@ -249,15 +274,13 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         if (p) l.setTooltipContent(makeTooltip(p, z, p.wardId === userWardId));
       });
     });
-  }, [mapReady, wardsData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapReady, wardsData, isAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto Locate ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!mapReady || !wardsData || !mapRef.current) return;
-    
-    if (sessionStorage.getItem('civicwatch_located')) {
-      return;
-    }
+    if (!mapReady || !mapRef.current) return;
+    // For admin, wait for ward data; for citizens, locate immediately
+    if (isAdmin && !wardsData) return;
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
@@ -266,16 +289,21 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         const inMumbai = lat >= 18.85 && lat <= 19.35 && lng >= 72.75 && lng <= 73.05;
 
         if (inMumbai && mapRef.current) {
-          setUserLocation({lat, lng});
-          const ward = findWardTurf(wardsData, lng, lat);
-          if (ward) {
-            mapRef.current.fitBounds(ward.bounds, { padding: [40, 40], maxZoom: 14, animate: true, duration: 1.5 });
-            setSelectedWard(ward.properties);
-            setUserWardId(ward.properties.wardId);
+          setUserLocation({ lat, lng });
+          if (isAdmin && wardsData) {
+            const ward = findWardTurf(wardsData, lng, lat);
+            if (ward) {
+              mapRef.current.fitBounds(ward.bounds, { padding: [40, 40], maxZoom: 14, animate: true, duration: 1.5 });
+              setSelectedWard(ward.properties);
+              setUserWardId(ward.properties.wardId);
+            } else {
+              mapRef.current.setView([lat, lng], 15, { animate: true });
+            }
           } else {
-            mapRef.current.setView([lat, lng], 14, { animate: true });
+            // Citizen: just zoom to their location
+            mapRef.current.setView([lat, lng], 15, { animate: true });
           }
-          
+
           const icon = L.divIcon({
             className: 'user-location-marker',
             html: `<div class="user-dot"><div class="user-dot-pulse"></div><div class="user-dot-center"></div></div>`,
@@ -286,17 +314,15 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         } else {
           mapRef.current?.setView(MUMBAI_CENTER, 11);
         }
-        sessionStorage.setItem('civicwatch_located', 'true');
         setIsLocating(false);
       },
       () => {
         mapRef.current?.setView(MUMBAI_CENTER, 11);
-        sessionStorage.setItem('civicwatch_located', 'true');
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
-  }, [mapReady, wardsData]);
+  }, [mapReady, isAdmin, wardsData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Re-style wards when colorMode or userWardId changes ─────────────────
   useEffect(() => {
@@ -397,50 +423,54 @@ export const MapScreen: React.FC<MapScreenProps> = ({
     <div className="relative w-full h-full min-h-[640px] flex flex-col overflow-hidden select-none">
       
       {isLocating && (
-        <div className="absolute inset-0 z-[1000] bg-white/80 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 z-[1000] bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs flex flex-col items-center justify-center transition-colors">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="mt-3 text-sm text-gray-600 font-medium">Finding your ward...</p>
+          <p className="mt-3 text-sm text-gray-600 dark:text-slate-300 font-medium">Finding your ward...</p>
         </div>
       )}
 
-      {/* Ward selector */}
-      <div className="absolute top-4 left-4 z-[400]">
-        <select
-          onChange={(e) => zoomToWard(e.target.value)}
-          value={selectedWard?.wardId ?? ''}
-          className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg border border-slate-200 text-sm font-medium focus:outline-none max-w-[200px]"
-        >
-          <option value="">🗺️ All Wards</option>
-          {sortedWards.map(w => (
-            <option key={w.properties.wardId} value={w.properties.wardId}>
-              {w.properties.wardId} — {w.properties.wardName}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Ward selector — Admin only */}
+      {isAdmin && (
+        <div className="absolute top-4 left-4 z-[400]">
+          <select
+            onChange={(e) => zoomToWard(e.target.value)}
+            value={selectedWard?.wardId ?? ''}
+            className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg border border-slate-200 dark:border-slate-700/60 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none max-w-[200px]"
+          >
+            <option value="">🗺️ All Wards</option>
+            {sortedWards.map(w => (
+              <option key={w.properties.wardId} value={w.properties.wardId} className="dark:bg-slate-800">
+                {w.properties.wardId} — {w.properties.wardName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {/* Color mode toggles */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] flex bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-slate-200 p-1 text-xs font-semibold gap-0.5">
-        {(['issues', 'resolution', 'speed'] as ColorMode[]).map(m => (
-          <button key={m} onClick={() => setColorMode(m)}
-            className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap ${colorMode === m ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>
-            {m === 'issues' ? '🚨 Issues' : m === 'resolution' ? '✅ Response' : '⏱️ Speed'}
-          </button>
-        ))}
-      </div>
+      {/* Color mode toggles — Admin only */}
+      {isAdmin && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] flex bg-white/95 dark:bg-slate-850/95 backdrop-blur-md rounded-full shadow-lg border border-slate-200 dark:border-slate-700/50 p-1 text-xs font-semibold gap-0.5">
+          {(['issues', 'resolution', 'speed'] as ColorMode[]).map(m => (
+            <button key={m} onClick={() => setColorMode(m)}
+              className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap ${colorMode === m ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}`}>
+              {m === 'issues' ? '🚨 Issues' : m === 'resolution' ? '✅ Response' : '⏱️ Speed'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Right-side controls */}
       <div className="absolute right-4 top-16 z-[400] flex flex-col gap-2">
         <div className="relative">
           <button onClick={() => setShowLayers(v => !v)} title="Map Theme"
-            className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-700 hover:text-blue-700 transition-all">
+            className="w-10 h-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 dark:border-slate-700/60 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-400 transition-all">
             <Layers className="w-5 h-5" />
           </button>
           {showLayers && (
-            <div className="absolute right-12 top-0 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 w-32 flex flex-col gap-1 z-50">
+            <div className="absolute right-12 top-0 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700/60 p-1.5 w-32 flex flex-col gap-1 z-50">
               {(['streets', 'satellite', 'dark'] as const).map(t => (
                 <button key={t} onClick={() => { setMapTheme(t); setShowLayers(false); }}
-                  className={`text-xs px-2.5 py-1.5 rounded-lg text-left font-medium transition-colors ${mapTheme === t ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}>
+                  className={`text-xs px-2.5 py-1.5 rounded-lg text-left font-medium transition-colors ${mapTheme === t ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
                   {t === 'streets' ? '🗺️ Streets' : t === 'satellite' ? '🛰️ Satellite' : '🌙 Dark'}
                 </button>
               ))}
@@ -455,7 +485,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
       {/* Recenter Button */}
       <div className="absolute bottom-24 right-4 z-[400]">
         <button onClick={handleRecenter} title="Recenter to your location"
-          className="w-11 h-11 bg-white hover:bg-slate-50 text-blue-600 rounded-full shadow-lg border border-slate-200 flex items-center justify-center transition-transform hover:scale-105 active:scale-95">
+          className="w-11 h-11 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-blue-600 dark:text-blue-400 rounded-full shadow-lg border border-slate-200 dark:border-slate-700/60 flex items-center justify-center transition-transform hover:scale-105 active:scale-95">
           <LocateFixed className="w-5 h-5" />
         </button>
       </div>
@@ -466,7 +496,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
           <motion.div
             initial={{ opacity: 0, y: '100%' }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }} transition={{ duration: 0.28, ease: 'easeOut' }}
-            className="absolute bottom-20 left-4 right-4 z-[400] bg-white rounded-2xl shadow-xl p-4 max-w-md mx-auto"
+            className="absolute bottom-20 left-4 right-4 z-[400] bg-white dark:bg-slate-850 rounded-2xl shadow-xl p-4 max-w-md mx-auto border border-slate-100 dark:border-slate-800/80 transition-colors"
           >
             <button onClick={() => {
               setSelectedWard(null);
@@ -479,31 +509,31 @@ export const MapScreen: React.FC<MapScreenProps> = ({
               } else {
                  mapRef.current?.setView(MUMBAI_CENTER, 11, { animate: true });
               }
-            }} className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 transition-colors">
+            }} className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors">
               <X className="w-5 h-5" />
             </button>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg flex-shrink-0">🏘️</div>
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 flex items-center justify-center text-lg flex-shrink-0">🏘️</div>
               <div>
-                <h3 className="font-bold text-lg leading-tight">Ward {selectedWard.wardId}</h3>
-                <p className="text-sm text-slate-500">{selectedWard.wardName} · <span className="text-slate-400">{selectedWard.zone}</span></p>
+                <h3 className="font-bold text-lg leading-tight text-slate-900 dark:text-slate-100">Ward {selectedWard.wardId}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{selectedWard.wardName} · <span className="text-slate-400 dark:text-slate-500">{selectedWard.zone}</span></p>
                 {selectedWard.wardId === userWardId && (
-                  <span className="inline-flex items-center gap-1 text-blue-600 text-xs font-bold mt-0.5">📍 You are here</span>
+                  <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs font-bold mt-0.5">📍 You are here</span>
                 )}
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-2 text-sm text-center mb-3">
-              <div className="bg-slate-50 rounded-xl p-2.5">
-                <div className="font-bold text-slate-800 text-lg">{selectedWard.responseRate}%</div>
-                <div className="text-xs text-slate-500 font-medium">Response Rate</div>
+              <div className="bg-slate-50 dark:bg-slate-800/70 rounded-xl p-2.5">
+                <div className="font-bold text-slate-800 dark:text-slate-200 text-lg">{selectedWard.responseRate}%</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Response Rate</div>
               </div>
-              <div className="bg-slate-50 rounded-xl p-2.5">
-                <div className="font-bold text-slate-800 text-lg">{selectedWard.avgResolution}d</div>
-                <div className="text-xs text-slate-500 font-medium">Avg Fix Time</div>
+              <div className="bg-slate-50 dark:bg-slate-800/70 rounded-xl p-2.5">
+                <div className="font-bold text-slate-800 dark:text-slate-200 text-lg">{selectedWard.avgResolution}d</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Avg Fix Time</div>
               </div>
             </div>
-            <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors">
+            <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-750 text-white rounded-xl font-bold text-sm transition-colors">
               View Issues →
             </button>
           </motion.div>
@@ -518,30 +548,30 @@ export const MapScreen: React.FC<MapScreenProps> = ({
               key={selectedIssue.id}
               initial={{ opacity: 0, y: '100%' }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: '100%' }} transition={{ duration: 0.3, ease: 'easeOut' }}
-              className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-xl border border-slate-200/90 flex items-center gap-3.5 pointer-events-auto"
+              className="bg-white dark:bg-slate-850 rounded-2xl p-3 sm:p-3.5 shadow-xl border border-slate-200/90 dark:border-slate-700/60 flex items-center gap-3.5 pointer-events-auto transition-colors"
             >
-              <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 border border-slate-100">
+              <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-100 dark:border-slate-750">
                 <img src={selectedIssue.imageUrl} alt={selectedIssue.title}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" crossOrigin="anonymous" />
               </div>
               <div className="flex-1 min-w-0">
                 {selectedIssue.severity === 'critical' ? (
-                  <div className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 font-semibold px-2 py-0.5 rounded-md text-xs">
+                  <div className="inline-flex items-center gap-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-semibold px-2 py-0.5 rounded-md text-xs">
                     <AlertTriangle className="w-3.5 h-3.5 stroke-[2.4]" /><span>Critical</span>
                   </div>
                 ) : selectedIssue.status === 'resolved' ? (
-                  <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-md text-xs">
+                  <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-0.5 rounded-md text-xs">
                     <CheckCircle className="w-3.5 h-3.5 stroke-[2.4]" /><span>Resolved</span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 font-semibold px-2 py-0.5 rounded-md text-xs">
+                  <div className="inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 font-semibold px-2 py-0.5 rounded-md text-xs">
                     <Wrench className="w-3.5 h-3.5 stroke-[2.4]" /><span>In Progress</span>
                   </div>
                 )}
-                <h3 className="text-slate-900 font-bold text-[15px] leading-snug truncate mt-1">{selectedIssue.title}</h3>
-                <p className="text-slate-400 text-xs mt-0.5">Reported {selectedIssue.reportedAt}</p>
+                <h3 className="text-slate-900 dark:text-slate-100 font-bold text-[15px] leading-snug truncate mt-1">{selectedIssue.title}</h3>
+                <p className="text-slate-400 dark:text-slate-500 text-xs mt-0.5">Reported {selectedIssue.reportedAt}</p>
                 <button onClick={() => onViewDetails(selectedIssue)}
-                  className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 font-bold text-xs mt-1.5 group transition-colors">
+                  className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-bold text-xs mt-1.5 group transition-colors">
                   <span>View Details</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </button>

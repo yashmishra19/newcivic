@@ -26,7 +26,7 @@ const NAV_ITEMS = [
   { path: '/admin/notifications', label: 'Notifications', icon: Bell },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ darkMode = false }: { darkMode?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
