@@ -182,12 +182,12 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         });
         if (!found) map.setView(MUMBAI_CENTER, 11, { animate: true });
       } else if (userLocation) {
-        map.setView([userLocation.lat, userLocation.lng], 14, { animate: true });
+        map.setView([userLocation?.lat ?? 0, userLocation?.lng ?? 0], 14, { animate: true });
       } else {
         map.setView(MUMBAI_CENTER, 11, { animate: true });
       }
       setSelectedWard(null);
-      if (onQuickReportAtLocation) onQuickReportAtLocation(e.latlng.lat, e.latlng.lng);
+      if (onQuickReportAtLocation) onQuickReportAtLocation(e.latlng?.lat ?? 0, e.latlng?.lng ?? 0);
     });
 
     map.on('zoomend', () => { zoomRef.current = map.getZoom(); });
@@ -367,7 +367,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         html: buildPinHtml(type, issue.id === selectedIssueId),
         iconSize: [44, 54], iconAnchor: [22, 54],
       });
-      const m = L.marker([issue.location.lat, issue.location.lng], { icon });
+      const m = L.marker([issue.location?.lat ?? 0, issue.location?.lng ?? 0], { icon });
       m.on('click', () => onSelectIssue(issue.id));
       return m;
     });
@@ -377,7 +377,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   // ── Pan to selected issue ────────────────────────────────────────────────
   useEffect(() => {
     if (selectedIssue && mapRef.current) {
-      mapRef.current.panTo([selectedIssue.location.lat, selectedIssue.location.lng], { animate: true, duration: 0.5 });
+      mapRef.current.panTo([selectedIssue.location?.lat ?? 0, selectedIssue.location?.lng ?? 0], { animate: true, duration: 0.5 });
     }
   }, [selectedIssueId]);
 
@@ -389,7 +389,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         }
       });
     } else if (userLocation && mapRef.current) {
-      mapRef.current.setView([userLocation.lat, userLocation.lng], 14, { animate: true });
+      mapRef.current.setView([userLocation?.lat ?? 0, userLocation?.lng ?? 0], 14, { animate: true });
     } else {
       mapRef.current?.setView(MUMBAI_CENTER, 11, { animate: true });
     }

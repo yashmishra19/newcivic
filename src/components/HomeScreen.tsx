@@ -204,7 +204,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             const isReported = item.status === 'reported';
             
             // Format nice tags based on category
-            const tagText = `#${item.category.replace('_', '')} #${item.location.neighborhood.replace(/\s+/g, '')}`;
+            const tagText = `#${(item.category ?? '').replace('_', '')} #${(item.location?.neighborhood ?? '').replace(/\s+/g, '')}`;
 
             return (
               <div

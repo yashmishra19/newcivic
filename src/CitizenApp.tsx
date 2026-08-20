@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getIssues, createIssue } from './services/issues';
+import { getIssues, insertIssue } from './services/issues';
 import { supabase } from './lib/supabase';
 import { INITIAL_ISSUES } from './data/mockIssues';
 import { CivicIssue, FilterOptions } from './types';
@@ -264,7 +264,7 @@ export default function CitizenApp() {
     setActiveTab('map');
 
     // Async sync to Supabase database
-    createIssue(newIssue)
+    insertIssue(newIssue)
       .then(() => {
         console.log('[CitizenApp] Successfully synced new issue to Supabase:', newIssue.id);
       })
