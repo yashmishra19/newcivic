@@ -172,3 +172,51 @@ body {
 .animate-slide-in-right {
   animation: slideInRight 0.25s ease-out;
 }
+
+/* ===== Ward Label Styling ===== */
+.ward-label-styled {
+  background: rgba(255,255,255,0.85) !important;
+  color: #1a1a1a !important;
+  border: 1px solid rgba(0,0,0,0.15) !important;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+  white-space: nowrap !important;
+  line-height: 1.3 !important;
+}
+
+.user-dot {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+.user-dot-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  background: #2563EB;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.5);
+  z-index: 2;
+}
+.user-dot-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(37,99,235,0.2);
+  border-radius: 50%;
+  animation: pulse 2s ease-out infinite;
+}
+@keyframes pulse {
+  0% { transform: translate(-50%,-50%) scale(0.5); opacity: 1; }
+  100% { transform: translate(-50%,-50%) scale(2); opacity: 0; }
+}

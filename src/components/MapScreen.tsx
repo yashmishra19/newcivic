@@ -1,8 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import L from 'leaflet';
-import { Search, SlidersHorizontal, ArrowRight, AlertTriangle, CheckCircle, Wrench, Navigation, Layers, Plus } from 'lucide-react';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import {
+  ArrowRight, AlertTriangle, CheckCircle,
+  Wrench, Layers, X, LocateFixed
+} from 'lucide-react';
 import { CivicIssue } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { loadMumbaiWards, MumbaiWardsGeoJSON, WardProperties } from '../data/mumbaiWards';
+import * as turf from '@turf/turf';
 
 interface MapScreenProps {
   issues: CivicIssue[];
@@ -15,434 +23,527 @@ interface MapScreenProps {
   onSearchChange: (q: string) => void;
 }
 
+type ColorMode = 'issues' | 'resolution' | 'speed';
+
+// ── Color helpers ────────────────────────────────────────────────────────────
+function getWardFill(props: WardProperties, mode: ColorMode): string {
+  if (mode === 'issues') {
+    const v = props.activeIssues;
+    if (v <= 5)  return '#86EFAC';
+    if (v <= 15) return '#FDE047';
+    if (v <= 25) return '#FDBA74';
+    return '#FCA5A5';
+  }
+  if (mode === 'resolution') {
+    const v = props.responseRate;
+    if (v >= 90) return '#86EFAC';
+    if (v >= 75) return '#FDE047';
+    if (v >= 60) return '#FDBA74';
+    return '#FCA5A5';
+  }
+  const v = props.avgResolution;
+  if (v <= 2.0) return '#86EFAC';
+  if (v <= 3.5) return '#FDE047';
+  if (v <= 5.0) return '#FDBA74';
+  return '#FCA5A5';
+}
+
+function findWardTurf(wards: MumbaiWardsGeoJSON, lng: number, lat: number) {
+  const pt = turf.point([lng, lat]);
+  for (const feature of wards.features) {
+    if (turf.booleanPointInPolygon(pt, feature as any)) {
+      return { properties: feature.properties, bounds: L.geoJSON(feature as any).getBounds() };
+    }
+  }
+  return null;
+}
+
+// ── Pin icon HTML builder ────────────────────────────────────────────────────
+function buildPinHtml(type: 'critical' | 'resolved' | 'in_progress', selected: boolean): string {
+  const cls = selected ? 'scale-125 z-50' : 'hover:scale-110';
+  const cfg = {
+    critical:    { bg: '#dc2626', sh: 'rgba(220,38,38,0.35)',  path: `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>` },
+    resolved:    { bg: '#16a34a', sh: 'rgba(22,163,74,0.35)',   path: `<polyline points="20 6 9 17 4 12"/>` },
+    in_progress: { bg: '#854d0e', sh: 'rgba(133,77,14,0.35)',   path: `<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>` },
+  };
+  const { bg, sh, path } = cfg[type];
+  return `<div class="pin-wrapper flex flex-col items-center cursor-pointer transition-transform ${cls}">
+    <div style="background-color:${bg};box-shadow:0 4px 12px ${sh};" class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-white text-white">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${path}</svg>
+    </div>
+    <div style="background-color:${bg};" class="w-2.5 h-2.5 rounded-full mt-1 border border-white"></div>
+  </div>`;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 export const MapScreen: React.FC<MapScreenProps> = ({
-  issues,
-  selectedIssueId,
-  onSelectIssue,
-  onViewDetails,
-  onOpenFilter,
-  onQuickReportAtLocation,
-  searchQuery,
-  onSearchChange,
+  issues, selectedIssueId, onSelectIssue, onViewDetails,
+  onOpenFilter, onQuickReportAtLocation, searchQuery, onSearchChange,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<{ [key: string]: L.Marker }>({});
-  const [mapTheme, setMapTheme] = useState<'streets' | 'satellite' | 'dark'>('streets');
-  const [showLayerMenu, setShowLayerMenu] = useState(false);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const mapRef          = useRef<L.Map | null>(null);
+  const geoJsonRef      = useRef<L.GeoJSON | null>(null);
+  const clusterRef      = useRef<L.MarkerClusterGroup | null>(null);
+  const tileRef         = useRef<L.TileLayer | null>(null);
+  const userMarkerRef   = useRef<L.Marker | null>(null);
+  const zoomRef         = useRef(11);
 
-  // Default to Kandivali, Mumbai (fallback when GPS is unavailable)
-  const KANDIVALI_CENTER: [number, number] = [19.2041, 72.8517];
-  const userCoordsRef = useRef<[number, number]>(KANDIVALI_CENTER);
+  const [wardsData, setWardsData]   = useState<MumbaiWardsGeoJSON | null>(null);
+  const [mapReady,  setMapReady]    = useState(false);
+  const [mapTheme,  setMapTheme]    = useState<'streets' | 'satellite' | 'dark'>('streets');
+  const [showLayers, setShowLayers] = useState(false);
+  const [colorMode,  setColorMode]  = useState<ColorMode>('issues');
+  const [selectedWard, setSelectedWard] = useState<WardProperties | null>(null);
+  const [userWardId, setUserWardId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
-  const selectedIssue = selectedIssueId ? issues.find((i) => i.id === selectedIssueId) : null;
+  const MUMBAI_CENTER: L.LatLngExpression = [19.0760, 72.8777];
 
-  // Helper to create custom HTML markers matching the screenshot
-  const createCustomPin = (type: 'critical' | 'resolved' | 'in_progress' | 'user', isSelected: boolean) => {
-    let iconHtml = '';
-    let bgColor = '';
-    let dotColor = '';
+  // Issues with ward IDs assigned
+  const issuesWithWards = useMemo(() => {
+    if (!wardsData) return [];
+    return issues.map((iss, i) => ({
+      ...iss,
+      wardId: wardsData.features[i % wardsData.features.length].properties.wardId,
+    }));
+  }, [issues, wardsData]);
 
-    if (type === 'critical') {
-      bgColor = '#dc2626'; // Red
-      dotColor = '#dc2626';
-      // Warning triangle icon
-      iconHtml = `
-        <div class="pin-wrapper flex flex-col items-center cursor-pointer transition-transform ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
-          <div style="background-color: ${bgColor}; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);" 
-               class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-white text-white">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-          </div>
-          <div style="background-color: ${dotColor};" class="w-2.5 h-2.5 rounded-full mt-1 border border-white shadow-xs"></div>
-        </div>
-      `;
-    } else if (type === 'resolved') {
-      bgColor = '#16a34a'; // Green
-      dotColor = '#16a34a';
-      // Checkmark icon
-      iconHtml = `
-        <div class="pin-wrapper flex flex-col items-center cursor-pointer transition-transform ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
-          <div style="background-color: ${bgColor}; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);" 
-               class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-white text-white">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          </div>
-          <div style="background-color: ${dotColor};" class="w-2.5 h-2.5 rounded-full mt-1 border border-white shadow-xs"></div>
-        </div>
-      `;
-    } else if (type === 'in_progress') {
-      bgColor = '#854d0e'; // Warm Brown / Rust
-      dotColor = '#854d0e';
-      // Crossed wrench / tools icon
-      iconHtml = `
-        <div class="pin-wrapper flex flex-col items-center cursor-pointer transition-transform ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
-          <div style="background-color: ${bgColor}; box-shadow: 0 4px 12px rgba(133, 77, 14, 0.35);" 
-               class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-white text-white">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
-          </div>
-          <div style="background-color: ${dotColor};" class="w-2.5 h-2.5 rounded-full mt-1 border border-white shadow-xs"></div>
-        </div>
-      `;
-    } else {
-      bgColor = '#1d4ed8'; // Blue (user)
-      dotColor = '#1d4ed8';
-      // Radar / User Pin
-      iconHtml = `
-        <div class="pin-wrapper flex flex-col items-center cursor-pointer transition-transform ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
-          <div style="background-color: ${bgColor}; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.35);" 
-               class="w-11 h-11 rounded-full flex items-center justify-center border-2 border-white text-white">
-            <div class="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center">
-              <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-            </div>
-          </div>
-          <div style="background-color: ${dotColor};" class="w-2.5 h-2.5 rounded-full mt-1 border border-white shadow-xs"></div>
-        </div>
-      `;
+  const selectedIssue = selectedIssueId
+    ? issuesWithWards.find(i => i.id === selectedIssueId) ?? null
+    : null;
+
+  // Ward tooltip content (NO numbers/issue counts)
+  const makeTooltip = (props: WardProperties, zoom: number, isUserWard: boolean) => {
+    const pin = isUserWard ? `<div style="color:#2563EB;font-size:9px;margin-top:1px;font-weight:700">📍 You</div>` : '';
+    if (zoom <= 12) {
+      return `<div style="text-align:center;font-weight:900;font-size:12px">${props.wardId}${pin ? '<br>' + pin : ''}</div>`;
     }
-
-    return L.divIcon({
-      className: 'custom-civic-marker',
-      html: iconHtml,
-      iconSize: [44, 54],
-      iconAnchor: [22, 54],
-      popupAnchor: [0, -50],
-    });
+    return `<div style="text-align:center;max-width:90px">
+      <div style="font-weight:700;font-size:11px;line-height:1.2">${props.wardName}</div>
+      ${pin}
+    </div>`;
   };
 
-  // Initialize Leaflet Map and try to get real user location
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
-
-    if (!mapInstanceRef.current) {
-      // Start with Kandivali, Mumbai as default center
-      const map = L.map(mapContainerRef.current, {
-        center: KANDIVALI_CENTER,
-        zoom: 15,
-        zoomControl: false,
-      });
-
-      // Default light tile layer (CartoDB Positron / OSM)
-      const tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        maxZoom: 19,
-        subdomains: 'abcd',
-      }).addTo(map);
-
-      tileLayerRef.current = tile;
-      mapInstanceRef.current = map;
-
-      // Handle map clicks for adding new hazard report
-      map.on('click', (e) => {
-        onSelectIssue(null);
-        if (onQuickReportAtLocation) {
-          onQuickReportAtLocation(e.latlng.lat, e.latlng.lng);
-        }
-      });
-
-      // Try to get real user GPS location and pan to it
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const { latitude, longitude } = pos.coords;
-            userCoordsRef.current = [latitude, longitude];
-            if (mapInstanceRef.current) {
-              mapInstanceRef.current.setView([latitude, longitude], 15, { animate: true });
-            }
-          },
-          () => {
-            // Permission denied or error — keep Kandivali default, no action needed
-            console.info('[MapScreen] Geolocation unavailable. Using Kandivali, Mumbai as default.');
-          },
-          { timeout: 8000, enableHighAccuracy: true }
-        );
-      }
-    }
-
-    return () => {
-      // Keep map instance alive across renders if possible
+  // Ward polygon style
+  const getStyle = useCallback((feature: any, mode: ColorMode, uwId: string | null) => {
+    const p = feature.properties as WardProperties;
+    const isU = p.wardId === uwId;
+    return {
+      fillColor: getWardFill(p, mode),
+      weight: isU ? 3 : 1.5,
+      opacity: 1,
+      color: isU ? '#2563EB' : '#1a1a1a',
+      fillOpacity: isU ? 0.35 : 0.5,
     };
   }, []);
 
-  // Update Tile Layer when mapTheme changes
+  // ── Step 1: Load ward data ───────────────────────────────────────────────
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+    loadMumbaiWards().then(data => setWardsData(data)).catch(console.error);
+  }, []);
 
-    mapInstanceRef.current.removeLayer(tileLayerRef.current);
+  // ── Step 2: Initialize map (once container is ready) ────────────────────
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
 
-    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    if (mapTheme === 'satellite') {
-      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    } else if (mapTheme === 'dark') {
-      url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const map = L.map(mapContainerRef.current, {
+      center: MUMBAI_CENTER,
+      zoom: 11,
+      minZoom: 10,
+      maxZoom: 18,
+      maxBounds: [[18.85, 72.75], [19.35, 73.05]],
+      maxBoundsViscosity: 1.0,
+      zoomControl: false,
+    });
+
+    const tile = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      { attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19, subdomains: 'abcd' }
+    ).addTo(map);
+    tileRef.current = tile;
+
+    map.on('click', (e) => {
+      onSelectIssue(null);
+      // Zoom back to user's ward if exists, else Mumbai center, on background click
+      if (userWardId && geoJsonRef.current) {
+        let found = false;
+        geoJsonRef.current.eachLayer((l: any) => {
+          if (l.feature?.properties?.wardId === userWardId) {
+            map.fitBounds(l.getBounds(), { padding: [40, 40], animate: true });
+            found = true;
+          }
+        });
+        if (!found) map.setView(MUMBAI_CENTER, 11, { animate: true });
+      } else if (userLocation) {
+        map.setView([userLocation.lat, userLocation.lng], 14, { animate: true });
+      } else {
+        map.setView(MUMBAI_CENTER, 11, { animate: true });
+      }
+      setSelectedWard(null);
+      if (onQuickReportAtLocation) onQuickReportAtLocation(e.latlng.lat, e.latlng.lng);
+    });
+
+    map.on('zoomend', () => { zoomRef.current = map.getZoom(); });
+
+    const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
+    map.addLayer(cluster);
+    clusterRef.current = cluster;
+
+    mapRef.current = map;
+    setMapReady(true);
+  }, [userWardId, userLocation]); // Re-bind click handler when userWardId changes
+
+  // ── Step 3: Render ward polygons once both map and data are ready ────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !wardsData || geoJsonRef.current) return;
+
+    // Build inverted grey mask
+    try {
+      let outline: any = wardsData.features[0];
+      for (let i = 1; i < wardsData.features.length; i++) {
+        const next = wardsData.features[i] as any;
+        const result = turf.union(turf.featureCollection([outline, next]));
+        if (result) outline = result;
+      }
+      const world = turf.polygon([[[-180,-90],[180,-90],[180,90],[-180,90],[-180,-90]]]);
+      const mask = turf.difference(turf.featureCollection([world, outline]));
+      if (mask) {
+        L.geoJSON(mask as any, {
+          style: { fillColor: '#94A3B8', fillOpacity: 0.45, weight: 0 },
+          interactive: false,
+        }).addTo(map);
+      }
+    } catch (e) {
+      console.warn('Mask generation failed', e);
     }
 
-    const newTile = L.tileLayer(url, {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(mapInstanceRef.current);
+    // Ward polygons
+    const layer = L.geoJSON(wardsData as any, {
+      style: (f) => getStyle(f, colorMode, userWardId),
+      onEachFeature: (feature, l) => {
+        const props = feature.properties as WardProperties;
+        l.bindTooltip(
+          makeTooltip(props, map.getZoom(), props.wardId === userWardId),
+          { permanent: true, direction: 'center', className: 'ward-label-styled' }
+        );
+        l.on({
+          mouseover: (e) => e.target.setStyle({ weight: 3, color: '#2563EB', fillOpacity: 0.7 }),
+          mouseout:  (e) => layer.resetStyle(e.target),
+          click: (e) => {
+            L.DomEvent.stopPropagation(e);
+            setSelectedWard(props);
+            map.fitBounds(e.target.getBounds(), { padding: [30, 30], animate: true });
+          },
+        });
+      },
+    }).addTo(map);
+    geoJsonRef.current = layer;
 
-    tileLayerRef.current = newTile;
+    // Update tooltips on zoom
+    map.on('zoomend', () => {
+      const z = map.getZoom();
+      layer.eachLayer((l: any) => {
+        const p = l.feature?.properties as WardProperties | undefined;
+        if (p) l.setTooltipContent(makeTooltip(p, z, p.wardId === userWardId));
+      });
+    });
+  }, [mapReady, wardsData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto Locate ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!mapReady || !wardsData || !mapRef.current) return;
+    
+    if (sessionStorage.getItem('civicwatch_located')) {
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const inMumbai = lat >= 18.85 && lat <= 19.35 && lng >= 72.75 && lng <= 73.05;
+
+        if (inMumbai && mapRef.current) {
+          setUserLocation({lat, lng});
+          const ward = findWardTurf(wardsData, lng, lat);
+          if (ward) {
+            mapRef.current.fitBounds(ward.bounds, { padding: [40, 40], maxZoom: 14, animate: true, duration: 1.5 });
+            setSelectedWard(ward.properties);
+            setUserWardId(ward.properties.wardId);
+          } else {
+            mapRef.current.setView([lat, lng], 14, { animate: true });
+          }
+          
+          const icon = L.divIcon({
+            className: 'user-location-marker',
+            html: `<div class="user-dot"><div class="user-dot-pulse"></div><div class="user-dot-center"></div></div>`,
+            iconSize: [24, 24], iconAnchor: [12, 12],
+          });
+          if (userMarkerRef.current) userMarkerRef.current.remove();
+          userMarkerRef.current = L.marker([lat, lng], { icon, zIndexOffset: 1000 }).addTo(mapRef.current);
+        } else {
+          mapRef.current?.setView(MUMBAI_CENTER, 11);
+        }
+        sessionStorage.setItem('civicwatch_located', 'true');
+        setIsLocating(false);
+      },
+      () => {
+        mapRef.current?.setView(MUMBAI_CENTER, 11);
+        sessionStorage.setItem('civicwatch_located', 'true');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [mapReady, wardsData]);
+
+  // ── Re-style wards when colorMode or userWardId changes ─────────────────
+  useEffect(() => {
+    geoJsonRef.current?.eachLayer((l: any) => {
+      const p = l.feature?.properties as WardProperties | undefined;
+      if (!p) return;
+      l.setStyle(getStyle(l.feature, colorMode, userWardId));
+      l.setTooltipContent(makeTooltip(p, zoomRef.current, p.wardId === userWardId));
+    });
+  }, [colorMode, userWardId, getStyle]);
+
+  // ── Tile theme change ────────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !tileRef.current) return;
+    map.removeLayer(tileRef.current);
+    const urls: Record<string, string> = {
+      streets:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    };
+    tileRef.current = L.tileLayer(urls[mapTheme], { attribution: '&copy; OSM', maxZoom: 19 }).addTo(map);
   }, [mapTheme]);
 
-  // Update Markers on issues change or selection change
+  // ── Update markers ───────────────────────────────────────────────────────
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
+    const cluster = clusterRef.current;
+    if (!cluster) return;
+    cluster.clearLayers();
 
-    // Clear previous markers
-    const currentMarkers = markersRef.current as Record<string, L.Marker>;
-    for (const key in currentMarkers) {
-      if (currentMarkers[key]) {
-        currentMarkers[key].remove();
-      }
-    }
-    markersRef.current = {};
+    const filtered = selectedWard
+      ? issuesWithWards.filter(i => i.wardId === selectedWard.wardId)
+      : issuesWithWards;
 
-    // Add Issue Markers
-    issues.forEach((issue) => {
-      let pinType: 'critical' | 'resolved' | 'in_progress' = 'critical';
-      if (issue.status === 'resolved') {
-        pinType = 'resolved';
-      } else if (issue.status === 'in_progress' || issue.status === 'scheduled') {
-        pinType = 'in_progress';
-      } else if (issue.severity === 'critical') {
-        pinType = 'critical';
-      }
+    const markers = filtered.map(issue => {
+      let type: 'critical' | 'resolved' | 'in_progress' = 'critical';
+      if (issue.status === 'resolved') type = 'resolved';
+      else if (issue.status === 'in_progress' || issue.status === 'scheduled') type = 'in_progress';
 
-      const isSelected = issue.id === selectedIssueId;
-      const customIcon = createCustomPin(pinType, isSelected);
-
-      const marker = L.marker([issue.location.lat, issue.location.lng], {
-        icon: customIcon,
-      }).addTo(map);
-
-      marker.on('click', () => {
-        onSelectIssue(issue.id);
-        map.panTo([issue.location.lat, issue.location.lng], {
-          animate: true,
-          duration: 0.6,
-        });
+      const icon = L.divIcon({
+        className: 'custom-civic-marker',
+        html: buildPinHtml(type, issue.id === selectedIssueId),
+        iconSize: [44, 54], iconAnchor: [22, 54],
       });
-
-      markersRef.current[issue.id] = marker;
+      const m = L.marker([issue.location.lat, issue.location.lng], { icon });
+      m.on('click', () => onSelectIssue(issue.id));
+      return m;
     });
+    cluster.addLayers(markers);
+  }, [issuesWithWards, selectedIssueId, selectedWard]);
 
-    // Add User Current Location Pin using live GPS coords (defaults to Kandivali)
-    const userLocationPin = createCustomPin('user', false);
-    const userMarker = L.marker(userCoordsRef.current, {
-      icon: userLocationPin,
-    }).addTo(map);
-
-    userMarker.bindTooltip('Your Current Location', {
-      direction: 'top',
-      offset: [0, -35],
-    });
-
-    markersRef.current['user-loc'] = userMarker;
-  }, [issues, selectedIssueId]);
-
-  // Pan to selected issue if selected from outside
+  // ── Pan to selected issue ────────────────────────────────────────────────
   useEffect(() => {
-    if (selectedIssue && mapInstanceRef.current) {
-      mapInstanceRef.current.panTo([selectedIssue.location.lat, selectedIssue.location.lng], {
-        animate: true,
-        duration: 0.5,
-      });
+    if (selectedIssue && mapRef.current) {
+      mapRef.current.panTo([selectedIssue.location.lat, selectedIssue.location.lng], { animate: true, duration: 0.5 });
     }
   }, [selectedIssueId]);
 
   const handleRecenter = () => {
-    if (mapInstanceRef.current) {
-      // Re-request GPS and pan to live location, fallback to stored coords
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const { latitude, longitude } = pos.coords;
-            userCoordsRef.current = [latitude, longitude];
-            mapInstanceRef.current?.setView([latitude, longitude], 16, { animate: true });
-          },
-          () => {
-            mapInstanceRef.current?.setView(userCoordsRef.current, 15, { animate: true });
-          },
-          { timeout: 5000, enableHighAccuracy: true }
-        );
-      } else {
-        mapInstanceRef.current.setView(userCoordsRef.current, 15, { animate: true });
-      }
+    if (userWardId && geoJsonRef.current && mapRef.current) {
+      geoJsonRef.current.eachLayer((l: any) => {
+        if (l.feature?.properties?.wardId === userWardId) {
+          mapRef.current!.fitBounds(l.getBounds(), { padding: [40, 40], animate: true });
+        }
+      });
+    } else if (userLocation && mapRef.current) {
+      mapRef.current.setView([userLocation.lat, userLocation.lng], 14, { animate: true });
+    } else {
+      mapRef.current?.setView(MUMBAI_CENTER, 11, { animate: true });
     }
+    setSelectedWard(null);
+    onSelectIssue(null);
   };
 
+  const zoomToWard = (wId: string) => {
+    if (!wId) { 
+      mapRef.current?.setView(MUMBAI_CENTER, 11, { animate: true });
+      setSelectedWard(null);
+      return;
+    }
+    geoJsonRef.current?.eachLayer((l: any) => {
+      if (l.feature?.properties?.wardId === wId) {
+        mapRef.current?.fitBounds(l.getBounds(), { padding: [30, 30] });
+        setSelectedWard(l.feature.properties as WardProperties);
+      }
+    });
+  };
+
+  const sortedWards = useMemo(
+    () => wardsData
+      ? [...wardsData.features].sort((a, b) => a.properties.wardName.localeCompare(b.properties.wardName))
+      : [],
+    [wardsData]
+  );
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="relative w-full h-full min-h-[640px] flex flex-col overflow-hidden select-none">
-      {/* 1. TOP FLOATING SEARCH & FILTER BAR */}
-      <div className="absolute top-4 left-4 right-4 z-[400] max-w-md mx-auto">
-        <div className="bg-white/95 backdrop-blur-md rounded-full shadow-[0_4px_25px_rgba(0,0,0,0.12)] border border-slate-200/90 px-4 py-2.5 flex items-center gap-3 transition-all hover:border-slate-300">
-          <Search className="w-5 h-5 text-slate-700 flex-shrink-0" />
-          <input
-            id="map-search-input"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search location or issue..."
-            className="w-full bg-transparent text-slate-800 placeholder-slate-500 text-sm font-medium focus:outline-hidden"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange('')}
-              className="text-xs text-slate-400 hover:text-slate-600 px-1 font-semibold"
-            >
-              Clear
-            </button>
-          )}
-          <button
-            id="map-filter-button"
-            type="button"
-            onClick={onOpenFilter}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 text-blue-700 transition-colors flex-shrink-0"
-            title="Filter Issues"
-          >
-            <SlidersHorizontal className="w-5 h-5 stroke-[2.2]" />
-          </button>
+      
+      {isLocating && (
+        <div className="absolute inset-0 z-[1000] bg-white/80 flex flex-col items-center justify-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="mt-3 text-sm text-gray-600 font-medium">Finding your ward...</p>
         </div>
+      )}
+
+      {/* Ward selector */}
+      <div className="absolute top-4 left-4 z-[400]">
+        <select
+          onChange={(e) => zoomToWard(e.target.value)}
+          value={selectedWard?.wardId ?? ''}
+          className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg border border-slate-200 text-sm font-medium focus:outline-none max-w-[200px]"
+        >
+          <option value="">🗺️ All Wards</option>
+          {sortedWards.map(w => (
+            <option key={w.properties.wardId} value={w.properties.wardId}>
+              {w.properties.wardId} — {w.properties.wardName}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* 2. MAP CONTROLS (Right Side) */}
-      <div className="absolute right-4 top-20 z-[400] flex flex-col gap-2">
-        {/* Recenter button */}
-        <button
-          onClick={handleRecenter}
-          className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-700 hover:text-[#1e40af] hover:bg-white transition-all"
-          title="Recenter Map"
-        >
-          <Navigation className="w-5 h-5" />
-        </button>
+      {/* Color mode toggles */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] flex bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-slate-200 p-1 text-xs font-semibold gap-0.5">
+        {(['issues', 'resolution', 'speed'] as ColorMode[]).map(m => (
+          <button key={m} onClick={() => setColorMode(m)}
+            className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap ${colorMode === m ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>
+            {m === 'issues' ? '🚨 Issues' : m === 'resolution' ? '✅ Response' : '⏱️ Speed'}
+          </button>
+        ))}
+      </div>
 
-        {/* Map Layers */}
+      {/* Right-side controls */}
+      <div className="absolute right-4 top-16 z-[400] flex flex-col gap-2">
         <div className="relative">
-          <button
-            onClick={() => setShowLayerMenu(!showLayerMenu)}
-            className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-700 hover:text-[#1e40af] hover:bg-white transition-all"
-            title="Map Themes"
-          >
+          <button onClick={() => setShowLayers(v => !v)} title="Map Theme"
+            className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-700 hover:text-blue-700 transition-all">
             <Layers className="w-5 h-5" />
           </button>
-
-          {showLayerMenu && (
-            <div className="absolute right-12 top-0 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 w-32 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95">
-              <button
-                onClick={() => {
-                  setMapTheme('streets');
-                  setShowLayerMenu(false);
-                }}
-                className={`text-xs px-2.5 py-1.5 rounded-lg text-left font-medium transition-colors ${
-                  mapTheme === 'streets' ? 'bg-[#e6eeff] text-[#1e40af] font-bold' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                🗺️ Streets
-              </button>
-              <button
-                onClick={() => {
-                  setMapTheme('satellite');
-                  setShowLayerMenu(false);
-                }}
-                className={`text-xs px-2.5 py-1.5 rounded-lg text-left font-medium transition-colors ${
-                  mapTheme === 'satellite' ? 'bg-[#e6eeff] text-[#1e40af] font-bold' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                🛰️ Satellite
-              </button>
-              <button
-                onClick={() => {
-                  setMapTheme('dark');
-                  setShowLayerMenu(false);
-                }}
-                className={`text-xs px-2.5 py-1.5 rounded-lg text-left font-medium transition-colors ${
-                  mapTheme === 'dark' ? 'bg-[#e6eeff] text-[#1e40af] font-bold' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                🌙 Night Dark
-              </button>
+          {showLayers && (
+            <div className="absolute right-12 top-0 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 w-32 flex flex-col gap-1 z-50">
+              {(['streets', 'satellite', 'dark'] as const).map(t => (
+                <button key={t} onClick={() => { setMapTheme(t); setShowLayers(false); }}
+                  className={`text-xs px-2.5 py-1.5 rounded-lg text-left font-medium transition-colors ${mapTheme === t ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-100'}`}>
+                  {t === 'streets' ? '🗺️ Streets' : t === 'satellite' ? '🛰️ Satellite' : '🌙 Dark'}
+                </button>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* 3. LEAFLET MAP CONTAINER */}
-      <div
-        id="civic-live-map"
-        ref={mapContainerRef}
-        className="w-full h-full flex-1 z-0 bg-[#f8f9ff]"
-      />
+      {/* Map container */}
+      <div id="civic-live-map" ref={mapContainerRef} className="w-full h-full flex-1 z-0 bg-[#e2e8f0]" />
 
-      {/* 4. BOTTOM FLOATING CARD PREVIEW (Exactly matching the screenshot) */}
-      <div className="absolute bottom-20 left-4 right-4 z-[400] max-w-md mx-auto">
+      {/* Recenter Button */}
+      <div className="absolute bottom-24 right-4 z-[400]">
+        <button onClick={handleRecenter} title="Recenter to your location"
+          className="w-11 h-11 bg-white hover:bg-slate-50 text-blue-600 rounded-full shadow-lg border border-slate-200 flex items-center justify-center transition-transform hover:scale-105 active:scale-95">
+          <LocateFixed className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Ward info card (without active issues counts) */}
+      <AnimatePresence>
+        {selectedWard && !selectedIssue && (
+          <motion.div
+            initial={{ opacity: 0, y: '100%' }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }} transition={{ duration: 0.28, ease: 'easeOut' }}
+            className="absolute bottom-20 left-4 right-4 z-[400] bg-white rounded-2xl shadow-xl p-4 max-w-md mx-auto"
+          >
+            <button onClick={() => {
+              setSelectedWard(null);
+              if (userWardId && geoJsonRef.current && mapRef.current) {
+                geoJsonRef.current.eachLayer((l: any) => {
+                  if (l.feature?.properties?.wardId === userWardId) {
+                    mapRef.current!.fitBounds(l.getBounds(), { padding: [40, 40], animate: true });
+                  }
+                });
+              } else {
+                 mapRef.current?.setView(MUMBAI_CENTER, 11, { animate: true });
+              }
+            }} className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg flex-shrink-0">🏘️</div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight">Ward {selectedWard.wardId}</h3>
+                <p className="text-sm text-slate-500">{selectedWard.wardName} · <span className="text-slate-400">{selectedWard.zone}</span></p>
+                {selectedWard.wardId === userWardId && (
+                  <span className="inline-flex items-center gap-1 text-blue-600 text-xs font-bold mt-0.5">📍 You are here</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 text-sm text-center mb-3">
+              <div className="bg-slate-50 rounded-xl p-2.5">
+                <div className="font-bold text-slate-800 text-lg">{selectedWard.responseRate}%</div>
+                <div className="text-xs text-slate-500 font-medium">Response Rate</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-2.5">
+                <div className="font-bold text-slate-800 text-lg">{selectedWard.avgResolution}d</div>
+                <div className="text-xs text-slate-500 font-medium">Avg Fix Time</div>
+              </div>
+            </div>
+            <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors">
+              View Issues →
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Issue preview card */}
+      <div className="absolute bottom-20 left-4 right-4 z-[400] max-w-md mx-auto pointer-events-none">
         <AnimatePresence mode="wait">
           {selectedIssue && (
             <motion.div
               key={selectedIssue.id}
-              initial={{ opacity: 0, y: '100%' }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: '100%' }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-[0_10px_35px_rgba(13,28,46,0.12)] border border-slate-200/90 flex items-center gap-3.5"
+              initial={{ opacity: 0, y: '100%' }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }} transition={{ duration: 0.3, ease: 'easeOut' }}
+              className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-xl border border-slate-200/90 flex items-center gap-3.5 pointer-events-auto"
             >
-              {/* Left Thumbnail Photo */}
-              <div className="relative w-24 h-24 sm:w-28 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 border border-slate-100 shadow-inner">
-                <img
-                  src={selectedIssue.imageUrl}
-                  alt={selectedIssue.title}
-                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                  crossOrigin="anonymous"
-                />
+              <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 border border-slate-100">
+                <img src={selectedIssue.imageUrl} alt={selectedIssue.title}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" crossOrigin="anonymous" />
               </div>
-
-              {/* Right Content */}
-              <div className="flex-1 min-w-0 pr-1">
-                {/* Severity Badge */}
+              <div className="flex-1 min-w-0">
                 {selectedIssue.severity === 'critical' ? (
-                  <div className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 font-semibold px-2 py-0.5 rounded-md text-xs tracking-tight">
-                    <AlertTriangle className="w-3.5 h-3.5 stroke-[2.4]" />
-                    <span>Critical</span>
+                  <div className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 font-semibold px-2 py-0.5 rounded-md text-xs">
+                    <AlertTriangle className="w-3.5 h-3.5 stroke-[2.4]" /><span>Critical</span>
                   </div>
                 ) : selectedIssue.status === 'resolved' ? (
-                  <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-md text-xs tracking-tight">
-                    <CheckCircle className="w-3.5 h-3.5 stroke-[2.4]" />
-                    <span>Resolved</span>
+                  <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-md text-xs">
+                    <CheckCircle className="w-3.5 h-3.5 stroke-[2.4]" /><span>Resolved</span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 bg-[#ffdbce] text-[#872d00] font-semibold px-2 py-0.5 rounded-md text-xs tracking-tight">
-                    <Wrench className="w-3.5 h-3.5 stroke-[2.4]" />
-                    <span>In Progress</span>
+                  <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 font-semibold px-2 py-0.5 rounded-md text-xs">
+                    <Wrench className="w-3.5 h-3.5 stroke-[2.4]" /><span>In Progress</span>
                   </div>
                 )}
-
-                {/* Title */}
-                <h3 className="text-[#0d1c2e] font-bold text-[15px] sm:text-base leading-snug truncate mt-1">
-                  {selectedIssue.title}
-                </h3>
-
-                {/* Reported time */}
-                <p className="text-[#757684] text-xs sm:text-sm font-normal mt-0.5">
-                  Reported {selectedIssue.reportedAt}
-                </p>
-
-                {/* View Details Link */}
-                <button
-                  id={`view-details-${selectedIssue.id}`}
-                  type="button"
-                  onClick={() => onViewDetails(selectedIssue)}
-                  className="inline-flex items-center gap-1 text-[#1e40af] hover:text-[#00288e] font-bold text-xs sm:text-sm mt-1.5 transition-colors group cursor-pointer"
-                >
+                <h3 className="text-slate-900 font-bold text-[15px] leading-snug truncate mt-1">{selectedIssue.title}</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Reported {selectedIssue.reportedAt}</p>
+                <button onClick={() => onViewDetails(selectedIssue)}
+                  className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 font-bold text-xs mt-1.5 group transition-colors">
                   <span>View Details</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             </motion.div>
