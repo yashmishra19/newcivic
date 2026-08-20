@@ -388,42 +388,6 @@ export const INCIDENT_SPARKLINE_DATA = [
   { day: 'Sun', value: 48 },
 ];
 
-// Chart data for analytics
-export const INCIDENT_TREND_DATA = Array.from({ length: 30 }, (_, i) => ({
-  day: `Aug ${i + 1}`,
-  reported: Math.floor(Math.random() * 20) + 10,
-  resolved: Math.floor(Math.random() * 18) + 8,
-}));
-
-export const CATEGORY_DISTRIBUTION = [
-  { name: 'Public Works', value: 38, color: '#3B82F6' },
-  { name: 'Emergency', value: 15, color: '#EF4444' },
-  { name: 'Sanitation', value: 22, color: '#22C55E' },
-  { name: 'Power', value: 14, color: '#F59E0B' },
-  { name: 'Law Enforcement', value: 11, color: '#8B5CF6' },
-];
-
-export const RESPONSE_TIME_DATA = [
-  { department: 'Emergency', avgMinutes: 6, color: '#EF4444' },
-  { department: 'Power', avgMinutes: 18, color: '#F59E0B' },
-  { department: 'Public Works', avgMinutes: 25, color: '#3B82F6' },
-  { department: 'Sanitation', avgMinutes: 32, color: '#22C55E' },
-  { department: 'Law Enforcement', avgMinutes: 14, color: '#8B5CF6' },
-];
-
-export const NEIGHBORHOOD_HEATMAP = [
-  { neighborhood: 'Downtown', incidents: 45, intensity: 0.9 },
-  { neighborhood: 'Midtown', incidents: 38, intensity: 0.76 },
-  { neighborhood: 'Harbor District', incidents: 32, intensity: 0.64 },
-  { neighborhood: 'Oakwood', incidents: 28, intensity: 0.56 },
-  { neighborhood: 'Northgate', incidents: 22, intensity: 0.44 },
-  { neighborhood: 'Westside', incidents: 18, intensity: 0.36 },
-  { neighborhood: 'Elm District', incidents: 15, intensity: 0.3 },
-  { neighborhood: 'Southgate', incidents: 12, intensity: 0.24 },
-  { neighborhood: 'Industrial Zone', incidents: 20, intensity: 0.4 },
-  { neighborhood: 'Greenfield', incidents: 8, intensity: 0.16 },
-];
-
 export const DISPATCH_DISTRIBUTION = [
   { department: 'Public Works', dispatches: 142, percentage: 35, color: '#3B82F6' },
   { department: 'Emergency', dispatches: 68, percentage: 17, color: '#EF4444' },

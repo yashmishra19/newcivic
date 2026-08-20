@@ -33,11 +33,6 @@ const ROUTE_META: Record<string, { title: string; subtitle: string; breadcrumb: 
     subtitle: 'Manage user accounts, verification status, and reporting history.',
     breadcrumb: ['Admin', 'Citizens'],
   },
-  '/admin/analytics': {
-    title: 'Performance Analytics',
-    subtitle: 'Comprehensive data visualization of municipal operations and efficiency.',
-    breadcrumb: ['Admin', 'Analytics'],
-  },
   '/admin/reports': {
     title: 'Reports Vault',
     subtitle: 'Generate, manage and share operational reports and documents.',

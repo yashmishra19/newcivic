@@ -7,7 +7,6 @@ import {
   Building2,
   Users,
   UserCheck,
-  BarChart3,
   FileText,
   Bell,
   ChevronLeft,
@@ -23,7 +22,6 @@ const NAV_ITEMS = [
   { path: '/admin/departments', label: 'Departments', icon: Building2 },
   { path: '/admin/teams', label: 'Field Teams', icon: Users },
   { path: '/admin/citizens', label: 'Citizens', icon: UserCheck },
-  { path: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/admin/reports', label: 'Reports', icon: FileText },
   { path: '/admin/notifications', label: 'Notifications', icon: Bell },
 ];

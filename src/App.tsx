@@ -9,7 +9,6 @@ import LiveMap from './pages/admin/LiveMap';
 import Departments from './pages/admin/Departments';
 import FieldTeams from './pages/admin/FieldTeams';
 import Citizens from './pages/admin/Citizens';
-import Analytics from './pages/admin/Analytics';
 import Reports from './pages/admin/Reports';
 import Notifications from './pages/admin/Notifications';
 import { AuthScreen } from './components/auth/AuthScreen';
@@ -70,7 +69,6 @@ export default function App() {
           <Route path="departments" element={<Departments />} />
           <Route path="teams" element={<FieldTeams />} />
           <Route path="citizens" element={<Citizens />} />
-          <Route path="analytics" element={<Analytics />} />
           <Route path="reports" element={<Reports />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>

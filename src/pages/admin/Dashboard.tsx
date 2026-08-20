@@ -95,62 +95,20 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Map + Priority Incidents */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Live Incident Map */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200/80 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900 text-[15px]">Live Incident Map</h3>
-              <p className="text-[12px] text-slate-500 mt-0.5">Real-time incident locations across Kandivali</p>
-            </div>
-            <Link to="/admin/map" className="text-[12px] font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
-              Open Full Map <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-          <div className="relative h-[340px] bg-slate-100">
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
-              <img
-                src="https://tile.openstreetmap.org/13/2412/3078.png"
-                alt="Map"
-                className="w-full h-full object-cover opacity-60"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/50 to-transparent" />
-              {priorityIncidents.slice(0, 6).map((inc, i) => {
-                const positions = [
-                  { top: '25%', left: '35%' }, { top: '40%', left: '55%' },
-                  { top: '55%', left: '30%' }, { top: '30%', left: '65%' },
-                  { top: '60%', left: '50%' }, { top: '45%', left: '75%' },
-                ];
-                const pos = positions[i];
-                const color =
-                  inc.priority === 'critical' ? '#EF4444' :
-                  inc.status === 'in-progress' ? '#F97316' :
-                  inc.status === 'resolved' ? '#22C55E' : '#3B82F6';
-                return (
-                  <div key={inc.id} className="absolute animate-pulse" style={{ top: pos.top, left: pos.left }}>
-                    <div className="w-4 h-4 rounded-full border-2 border-white shadow-lg" style={{ backgroundColor: color }} />
-                  </div>
-                );
-              })}
-            </div>
-            <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] font-medium shadow-sm border border-slate-200/60">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Critical</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-orange-500" /> Repairing</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Active</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Resolved</span>
-            </div>
-          </div>
-        </div>
-
+      {/* Main Content Grid: Priority Incidents & Dispatch Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Priority Incidents */}
         <div className="bg-white rounded-xl border border-slate-200/80 flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="font-semibold text-slate-900 text-[15px]">Priority Incidents</h3>
-            <p className="text-[12px] text-slate-500 mt-0.5">Requires immediate attention</p>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-900 text-[15px]">Priority Incidents</h3>
+              <p className="text-[12px] text-slate-500 mt-0.5">Requires immediate attention</p>
+            </div>
+            <Link to="/admin/incidents" className="text-[12px] font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
+              View all <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="flex-1 divide-y divide-slate-100 overflow-y-auto">
+          <div className="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[380px]">
             {priorityIncidents.map((inc) => {
               const pBadge = PRIORITY_BADGE[inc.priority] || PRIORITY_BADGE.low;
               const sBadge = STATUS_BADGE[inc.status]   || STATUS_BADGE.reported;
@@ -190,46 +148,46 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* Dispatch Distribution */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-5">
-        <div className="flex items-center justify-between mb-5">
+        {/* Dispatch Distribution */}
+        <div className="bg-white rounded-xl border border-slate-200/80 p-5 flex flex-col justify-between">
           <div>
-            <h3 className="font-semibold text-slate-900 text-[15px]">Municipal Dispatch Distribution</h3>
-            <p className="text-[12px] text-slate-500 mt-0.5">Department-wise dispatch activity this month</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-slate-900 text-[15px]">Municipal Dispatch Distribution</h3>
+                <p className="text-[12px] text-slate-500 mt-0.5">Department-wise dispatch activity this month</p>
+              </div>
+              <span className="text-[12px] text-slate-500 font-medium">Total: 408 dispatches</span>
+            </div>
+            <div className="h-[190px] mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={DISPATCH_DISTRIBUTION} layout="vertical" barSize={18}>
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="department" width={110} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0F172A', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '12px', padding: '8px 14px' }}
+                    formatter={(val: number) => [`${val} dispatches`, 'Total']}
+                  />
+                  <Bar dataKey="dispatches" radius={[0, 6, 6, 0]}>
+                    {DISPATCH_DISTRIBUTION.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <span className="text-[12px] text-slate-500 font-medium">Total: 408 dispatches</span>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DISPATCH_DISTRIBUTION} layout="vertical" barSize={20}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="department" width={110} tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '12px', padding: '8px 14px' }}
-                  formatter={(val: number) => [`${val} dispatches`, 'Total']}
-                />
-                <Bar dataKey="dispatches" radius={[0, 6, 6, 0]}>
-                  {DISPATCH_DISTRIBUTION.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 content-start">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 content-start pt-3 border-t border-slate-100">
             {DISPATCH_DISTRIBUTION.map((dept) => {
               const Icon = DEPT_ICONS[dept.department] || Wrench;
               return (
-                <div key={dept.department} className="rounded-xl border border-slate-200/80 p-3.5 hover:shadow-sm transition-shadow">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: dept.color + '15' }}>
-                      <Icon className="w-3.5 h-3.5" style={{ color: dept.color }} />
+                <div key={dept.department} className="rounded-xl border border-slate-200/80 p-3 hover:shadow-sm transition-shadow">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: dept.color + '15' }}>
+                      <Icon className="w-3 h-3" style={{ color: dept.color }} />
                     </div>
                   </div>
-                  <p className="text-lg font-bold text-slate-900">{dept.percentage}%</p>
+                  <p className="text-base font-bold text-slate-900">{dept.percentage}%</p>
                   <p className="text-[11px] text-slate-500 truncate">{dept.department}</p>
                   <p className="text-[10px] text-slate-400">{dept.dispatches} dispatches</p>
                 </div>
