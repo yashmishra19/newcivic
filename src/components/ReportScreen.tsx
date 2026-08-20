@@ -33,6 +33,7 @@ import { AiDiagnosticsModal } from './AiDiagnosticsModal';
 interface ReportScreenProps {
   onAddIssue: (newIssue: CivicIssue) => void;
   onCancel: () => void;
+  darkMode?: boolean;
 }
 
 const SAMPLE_TEMPLATES = [
@@ -82,7 +83,7 @@ const SAMPLE_TEMPLATES = [
   },
 ];
 
-export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel }) => {
+export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel, darkMode = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -343,26 +344,26 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
       {/* STEP 1 — CLEAN FULL SCREEN PHOTO PICKER */}
       {step === 'photo-picker' && (
-        <div className="absolute inset-0 z-40 bg-white font-['Plus_Jakarta_Sans',sans-serif] flex flex-col animate-in fade-in duration-200">
+        <div className="absolute inset-0 z-40 bg-white dark:bg-slate-900 font-['Plus_Jakarta_Sans',sans-serif] flex flex-col animate-in fade-in duration-200 transition-colors">
           {/* Top Header Row */}
-          <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800/80">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onCancel}
-                className="p-1.5 -ml-1 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 -ml-1 rounded-full text-slate-600 dark:text-slate-350 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Back"
               >
                 <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
               </button>
-              <h1 className="text-xl font-black text-[#0d1c2e] tracking-tight">
+              <h1 className="text-xl font-black text-[#0d1c2e] dark:text-slate-100 tracking-tight">
                 Report a Hazard
               </h1>
             </div>
             <button
               type="button"
               onClick={onCancel}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               title="Cancel"
             >
               <X className="w-5 h-5" />
@@ -372,10 +373,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
           {/* Content Body */}
           <div className="flex-1 w-full max-w-md mx-auto p-6 flex flex-col justify-center pb-8">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Camera className="w-8 h-8 text-blue-500 stroke-[2]" />
+              <div className="w-16 h-16 bg-blue-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Camera className="w-8 h-8 text-blue-500 dark:text-blue-400 stroke-[2]" />
               </div>
-              <p className="text-slate-500 font-medium text-sm">
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
                 Add a photo to get started
               </p>
             </div>
@@ -394,7 +395,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-[#2563EB] rounded-2xl border-2 border-[#2563EB] flex items-center justify-center gap-3 transition-all cursor-pointer"
+                className="w-full py-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] text-[#2563EB] dark:text-blue-400 rounded-2xl border-2 border-[#2563EB] dark:border-blue-500/80 flex items-center justify-center gap-3 transition-all cursor-pointer"
               >
                 <ImageIcon className="w-5 h-5 stroke-[2.2]" />
                 <span className="text-base font-bold">Upload Photo</span>
@@ -406,27 +407,27 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
       {/* STEP 2 — NEW REPORT / CREATE POST PAGE */}
       {step === 'create-post' && (
-        <div className="absolute inset-0 z-40 bg-white flex flex-col font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200">
+        <div className="absolute inset-0 z-40 bg-white dark:bg-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in duration-200 transition-colors">
           <div className="flex-1 w-full max-w-md mx-auto overflow-y-auto p-5 pb-8 space-y-5">
             {/* Top Header Row */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setStep('photo-picker')}
-                  className="p-1.5 -ml-1 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="p-1.5 -ml-1 rounded-full text-slate-600 dark:text-slate-350 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   title="Back to photo selection"
                 >
                   <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
                 </button>
-                <h1 className="text-xl font-black text-[#0d1c2e] tracking-tight">
+                <h1 className="text-xl font-black text-[#0d1c2e] dark:text-slate-100 tracking-tight">
                   New Report
                 </h1>
               </div>
               <button
                 type="button"
                 onClick={onCancel}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Cancel"
               >
                 <X className="w-5 h-5" />
@@ -434,7 +435,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
             </div>
 
             {/* Photo Preview Card */}
-            <div className="relative rounded-[20px] overflow-hidden bg-slate-900 border border-slate-200 aspect-video shadow-md group">
+            <div className="relative rounded-[20px] overflow-hidden bg-slate-900 border border-slate-200 dark:border-slate-800 aspect-video shadow-md group">
               <img
                 src={imageUrl || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80'}
                 alt="Report photo preview"
@@ -453,17 +454,17 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
-                    className="bg-white/90 hover:bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="bg-white/90 hover:bg-white dark:bg-slate-800/90 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer border border-transparent dark:border-slate-700/50"
                   >
-                    <Camera className="w-3.5 h-3.5 text-blue-600" />
+                    <Camera className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Retake</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-white/90 hover:bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="bg-white/90 hover:bg-white dark:bg-slate-800/90 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer border border-transparent dark:border-slate-700/50"
                   >
-                    <Upload className="w-3.5 h-3.5 text-blue-600" />
+                    <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Change Photo</span>
                   </button>
                 </div>
@@ -472,45 +473,45 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
 
             {/* AI UX States */}
             {isAiAnalyzing ? (
-              <div className="p-3 bg-[#e6eeff] border border-[#d5e3fc] rounded-xl text-xs text-[#00288e] font-semibold flex items-center gap-2 animate-pulse">
-                <Sparkles className="w-4 h-4 text-[#1e40af] animate-spin" />
+              <div className="p-3 bg-[#e6eeff] dark:bg-blue-950/30 border border-[#d5e3fc] dark:border-blue-900/50 rounded-xl text-xs text-[#00288e] dark:text-blue-400 font-semibold flex items-center gap-2 animate-pulse">
+                <Sparkles className="w-4 h-4 text-[#1e40af] dark:text-blue-400 animate-spin" />
                 <span>AI is analyzing your photo...</span>
               </div>
             ) : aiUnavailable ? (
-              <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-xl text-xs text-yellow-900 font-semibold flex items-start gap-2">
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-300 dark:border-yellow-900/50 rounded-xl text-xs text-yellow-900 dark:text-yellow-400 font-semibold flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
                 <span>
                   <strong>AI service unavailable.</strong> Both Gemini and Grok are offline or quota-exceeded. Please fill in the issue category and details manually.
                 </span>
               </div>
             ) : noIssueDetected ? (
-              <div className="p-3 bg-orange-50 border border-orange-300 rounded-xl text-xs text-orange-900 font-semibold flex items-start gap-2">
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-300 dark:border-orange-900/50 rounded-xl text-xs text-orange-900 dark:text-orange-400 font-semibold flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                 <span>
                   <strong>No civic issue detected.</strong> This image does not appear to show a road, drainage, lighting, or other municipal hazard. Please upload a relevant photo or fill in the form manually.
                 </span>
               </div>
             ) : pipelineError ? (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold flex items-start gap-2">
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl text-xs text-red-800 dark:text-red-400 font-semibold flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <span>{pipelineError}</span>
               </div>
             ) : aiConfidence !== null ? (
               <div className="flex flex-col gap-2">
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-start gap-2">
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-xs text-emerald-800 dark:text-emerald-400 font-semibold flex items-start gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>AI has pre-filled the form. Please verify before submitting.</span>
                 </div>
                 {aiConfidence < 50 && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-xs text-yellow-800 font-semibold flex items-start gap-2">
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded-xl text-xs text-yellow-800 dark:text-yellow-400 font-semibold flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
                     <span>Low confidence detection. Please verify all fields.</span>
                   </div>
                 )}
                 <div className="flex justify-end">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
-                    aiConfidence > 80 ? 'bg-emerald-200 text-emerald-900' : 
-                    aiConfidence >= 50 ? 'bg-yellow-200 text-yellow-900' : 'bg-red-200 text-red-900'
+                    aiConfidence > 80 ? 'bg-emerald-200 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-400' : 
+                    aiConfidence >= 50 ? 'bg-yellow-200 dark:bg-yellow-950/60 text-yellow-900 dark:text-yellow-400' : 'bg-red-200 dark:bg-red-950/60 text-red-900 dark:text-red-400'
                   }`}>
                     <Sparkles className="w-3 h-3" />
                     AI Verified: {category} | {aiConfidence}% Match
@@ -523,7 +524,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Issue Title */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#757684] block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400 block mb-1">
                   Issue Title
                 </label>
                 <input
@@ -533,57 +534,57 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={isAiAnalyzing}
                   placeholder="e.g. Severe Asphalt Pothole"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-[#0d1c2e] dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-[#1e40af] dark:focus:ring-blue-500 focus:outline-hidden shadow-xs disabled:opacity-50"
                 />
               </div>
 
               {/* Category & Severity Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#757684] block mb-1">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400 block mb-1">
                     Category
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     disabled={isAiAnalyzing}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] focus:outline-hidden shadow-xs cursor-pointer disabled:opacity-50"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] dark:text-slate-100 focus:outline-hidden shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    <option value="Pothole / Road">Pothole / Road</option>
-                    <option value="Street Light">Street Light</option>
-                    <option value="Garbage / Sanitation">Garbage / Sanitation</option>
-                    <option value="Waterlogging">Waterlogging</option>
-                    <option value="Broken Footpath">Broken Footpath</option>
-                    <option value="Encroachment">Encroachment</option>
-                    <option value="Other">Other</option>
+                    <option value="Pothole / Road" className="dark:bg-slate-800">Pothole / Road</option>
+                    <option value="Street Light" className="dark:bg-slate-800">Street Light</option>
+                    <option value="Garbage / Sanitation" className="dark:bg-slate-800">Garbage / Sanitation</option>
+                    <option value="Waterlogging" className="dark:bg-slate-800">Waterlogging</option>
+                    <option value="Broken Footpath" className="dark:bg-slate-800">Broken Footpath</option>
+                    <option value="Encroachment" className="dark:bg-slate-800">Encroachment</option>
+                    <option value="Other" className="dark:bg-slate-800">Other</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#757684] block mb-1">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400 block mb-1">
                     Severity
                   </label>
                   <select
                     value={severity}
                     onChange={(e) => setSeverity(e.target.value)}
                     disabled={isAiAnalyzing}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] focus:outline-hidden shadow-xs cursor-pointer disabled:opacity-50"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0d1c2e] dark:text-slate-100 focus:outline-hidden shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    <option value="Critical Hazard">Critical Hazard</option>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
+                    <option value="Critical Hazard" className="dark:bg-slate-800">Critical Hazard</option>
+                    <option value="High" className="dark:bg-slate-800">High</option>
+                    <option value="Medium" className="dark:bg-slate-800">Medium</option>
+                    <option value="Low" className="dark:bg-slate-800">Low</option>
                   </select>
                 </div>
               </div>
 
               {/* Location Address */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#757684] block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400 block mb-1">
                   Location Address
                 </label>
                 <div className="relative">
-                  <MapPin className="w-4 h-4 text-[#1e40af] absolute left-3 top-3" />
+                  <MapPin className="w-4 h-4 text-[#1e40af] dark:text-blue-450 dark:text-blue-450/90 absolute left-3 top-3" />
                   <input
                     type="text"
                     required
@@ -591,14 +592,14 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                     onChange={(e) => setAddress(e.target.value)}
                     disabled={isAiAnalyzing}
                     placeholder="e.g. 550 Mission St, Downtown District 4"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-medium text-[#0d1c2e] focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl pl-9 pr-3 py-2.5 text-xs font-medium text-[#0d1c2e] dark:text-slate-100 focus:ring-2 focus:ring-[#1e40af] dark:focus:ring-blue-500 focus:outline-hidden shadow-xs disabled:opacity-50"
                   />
                 </div>
               </div>
 
               {/* Description */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#757684] block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400 block mb-1">
                   Description
                 </label>
                 <textarea
@@ -607,7 +608,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onAddIssue, onCancel
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={isAiAnalyzing}
                   placeholder="Describe hazard dimension, traffic obstruction, or immediate safety danger..."
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-medium text-[#0d1c2e] placeholder-slate-400 focus:ring-2 focus:ring-[#1e40af] focus:outline-hidden shadow-xs disabled:opacity-50"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl p-3 text-xs font-medium text-[#0d1c2e] dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-[#1e40af] dark:focus:ring-blue-500 focus:outline-hidden shadow-xs disabled:opacity-50"
                 />
               </div>
 
